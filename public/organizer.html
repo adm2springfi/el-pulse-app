@@ -1,0 +1,107 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EL Pulse - Organizer Dashboard</title>
+    <style>
+        :root { --primary: #0284c7; --bg: #f8fafc; --card: #ffffff; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: #0f172a; margin: 0; padding: 0; }
+        header { background: #0f172a; color: #fff; padding: 1.5rem 2rem; display: flex; justify-content: space-between; align-items: center; }
+        header h1 { margin: 0; font-size: 1.5rem; color: #38bdf8; }
+        .nav-links a { color: #f1f5f9; text-decoration: none; margin-left: 1.5rem; font-size: 0.95rem; font-weight: 500; }
+        .container { max-width: 1100px; margin: 2rem auto; padding: 0 1rem; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
+        .stat-card { background: white; padding: 1.5rem; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; }
+        .stat-card h3 { margin: 0 0 0.5rem 0; font-size: 0.9rem; color: #64748b; text-transform: uppercase; }
+        .stat-card .value { font-size: 2rem; font-weight: bold; color: #0f172a; }
+        .card { background: white; border-radius: 12px; padding: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; }
+        table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+        th, td { text-align: left; padding: 0.75rem; border-bottom: 1px solid #e2e8f0; }
+        th { color: #64748b; font-size: 0.875rem; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>EL Pulse Organizer Hub</h1>
+        <div class="nav-links">
+            <a href="/events.html">Browse Events</a>
+            <a href="/scan.html">Door Scanner</a>
+            <a href="/organizer.html" style="color: #38bdf8;">Organizer Dashboard</a>
+        </div>
+    </header>
+
+    <div class="container">
+        <h2>Performance & Sales Analytics</h2>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>Total Revenue</h3>
+                <div class="value" id="statRevenue">R0</div>
+            </div>
+            <div class="stat-card">
+                <h3>Tickets Sold</h3>
+                <div class="value" id="statTickets">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>Active Events</h3>
+                <div class="value" id="statEvents">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>Attendees Checked-In</h3>
+                <div class="value" id="statScanned">0</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Event Performance Breakdown</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Event Title</th>
+                        <th>Venue</th>
+                        <th>Date</th>
+                        <th>Tickets Sold</th>
+                        <th>Revenue</th>
+                    </tr>
+                </thead>
+                <tbody id="eventTableBody">
+                    <tr><td colspan="5" style="text-align:center; color:#64748b;">Loading analytics...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        async function loadStats() {
+            try {
+                const res = await fetch("/api/organizer/stats");
+                const data = await res.json();
+                
+                document.getElementById("statRevenue").innerText = "R" + data.totalRevenue;
+                document.getElementById("statTickets").innerText = data.totalTicketsSold;
+                document.getElementById("statEvents").innerText = data.totalEvents;
+                document.getElementById("statScanned").innerText = data.scannedCount;
+
+                const tbody = document.getElementById("eventTableBody");
+                if (data.events.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">No events posted yet.</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = data.events.map(ev => \
+                    <tr>
+                        <td><b>\</b></td>
+                        <td>\</td>
+                        <td>\</td>
+                        <td>\</td>
+                        <td><b style="color: #0284c7;">R\</b></td>
+                    </tr>
+                \).join("");
+            } catch(e) {
+                console.error(e);
+            }
+        }
+        loadStats();
+    </script>
+</body>
+</html>

@@ -1,0 +1,200 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EL Pulse - East London Events & Ticketing</title>
+    <style>
+        :root { --primary: #0284c7; --primary-dark: #0369a1; --bg: #f8fafc; --card: #ffffff; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: #0f172a; margin: 0; padding: 0; }
+        header { background: #0f172a; color: #fff; padding: 1.5rem 2rem; display: flex; justify-content: space-between; align-items: center; }
+        header h1 { margin: 0; font-size: 1.5rem; color: #38bdf8; }
+        .nav-links a { color: #f1f5f9; text-decoration: none; margin-left: 1.5rem; font-size: 0.95rem; font-weight: 500; }
+        .container { max-width: 1100px; margin: 2rem auto; padding: 0 1rem; }
+        .hero { background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color: white; padding: 2.5rem; border-radius: 12px; text-align: center; margin-bottom: 2rem; }
+        .hero h2 { margin: 0 0 0.5rem 0; font-size: 2.2rem; }
+        .controls { display: flex; gap: 1rem; margin-bottom: 2rem; flex-wrap: wrap; }
+        .search-bar { flex: 1; padding: 0.75rem 1rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 1rem; }
+        .btn { background: var(--primary); color: white; border: none; padding: 0.75rem 1.25rem; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 1rem; }
+        .btn:hover { background: var(--primary-dark); }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem; }
+        .card { background: var(--card); border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; display: flex; flex-direction: column; }
+        .card img { width: 100%; height: 180px; object-fit: cover; }
+        .card-body { padding: 1.25rem; flex: 1; display: flex; flex-direction: column; }
+        .card-title { margin: 0 0 0.5rem 0; font-size: 1.25rem; color: #1e293b; }
+        .card-meta { font-size: 0.875rem; color: #64748b; margin-bottom: 0.5rem; }
+        .price-tag { font-size: 1.25rem; font-weight: bold; color: #0284c7; margin-top: auto; margin-bottom: 1rem; }
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 100; }
+        .modal-content { background: white; padding: 2rem; border-radius: 12px; max-width: 500px; width: 90%; }
+        .modal input, .modal select { width: 100%; padding: 0.75rem; margin: 0.5rem 0 1rem 0; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>EL Pulse Events</h1>
+        <div class="nav-links">
+            <a href="/events.html">Browse Events</a>
+            <a href="/buy.html">Direct Buy</a>
+            <a href="/scan.html">Door Scanner</a>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="hero">
+            <h2>Discover & Attend East London Events</h2>
+            <p>Find the best local concerts, markets, and nightlife across East London.</p>
+        </div>
+
+        <div class="controls">
+            <input type="text" id="searchInput" class="search-bar" placeholder="Search events by title, venue, or category..." onkeyup="filterEvents()">
+            <button class="btn" onclick="openPostModal()">+ Post Your Event</button>
+        </div>
+
+        <div id="eventsGrid" class="grid"></div>
+    </div>
+
+    <!-- Post Event Modal -->
+    <div id="postModal" class="modal">
+        <div class="modal-content">
+            <h3>Post an Event on EL Pulse</h3>
+            <label>Event Title</label>
+            <input type="text" id="evTitle" placeholder="e.g. Nahoon Beach Live Music">
+            <label>Category</label>
+            <select id="evCat">
+                <option>Music</option>
+                <option>Food & Drink</option>
+                <option>Sports</option>
+                <option>Community</option>
+            </select>
+            <label>Date</label>
+            <input type="date" id="evDate">
+            <label>Venue / Location</label>
+            <input type="text" id="evVenue" placeholder="e.g. Beacon Bay, East London">
+            <label>Ticket Price (ZAR)</label>
+            <input type="number" id="evPrice" placeholder="150">
+            <div style="display:flex; gap:1rem;">
+                <button class="btn" style="flex:1;" onclick="submitEvent()">Post Event</button>
+                <button class="btn" style="background:#64748b; flex:1;" onclick="closeModal('postModal')">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Buy Ticket Modal -->
+    <div id="buyModal" class="modal">
+        <div class="modal-content">
+            <h3 id="buyModalTitle">Buy Ticket</h3>
+            <p id="buyModalMeta" style="color:#64748b;"></p>
+            <label>Full Name</label>
+            <input type="text" id="buyerName" placeholder="Enter attendee full name">
+            <label>Ticket Tier</label>
+            <select id="buyerTier">
+                <option value="General Admission">General Admission</option>
+                <option value="VIP Pass">VIP Pass</option>
+            </select>
+            <div id="buyResult" style="margin-bottom:1rem; padding:0.75rem; border-radius:6px; display:none;"></div>
+            <div style="display:flex; gap:1rem;">
+                <button class="btn" style="flex:1;" onclick="confirmPurchase()">Complete Purchase</button>
+                <button class="btn" style="background:#64748b; flex:1;" onclick="closeModal('buyModal')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allEvents = [];
+        let selectedEventId = null;
+
+        async function loadEvents() {
+            try {
+                const res = await fetch("/api/events");
+                allEvents = await res.json();
+                renderEvents(allEvents);
+            } catch(e) { console.error(e); }
+        }
+
+        function renderEvents(list) {
+            const grid = document.getElementById("eventsGrid");
+            if(!grid) return;
+            grid.innerHTML = list.map(function(e) {
+                return '<div class="card">' +
+                    '<img src="' + (e.image || 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=500&auto=format&fit=crop') + '" alt="' + e.title + '">' +
+                    '<div class="card-body">' +
+                        '<h3 class="card-title">' + e.title + '</h3>' +
+                        '<div class="card-meta">Location: ' + e.venue + '</div>' +
+                        '<div class="card-meta">Date: ' + e.date + ' | Category: ' + e.category + '</div>' +
+                        '<div class="price-tag">R' + e.price + '</div>' +
+                        '<button class="btn" style="width:100%;" onclick="openBuyModal(' + e.id + ')">Get Tickets</button>' +
+                    '</div>' +
+                '</div>';
+            }).join("");
+        }
+
+        function filterEvents() {
+            const query = document.getElementById("searchInput").value.toLowerCase();
+            const filtered = allEvents.filter(function(e) {
+                return e.title.toLowerCase().indexOf(query) !== -1 ||
+                       e.venue.toLowerCase().indexOf(query) !== -1 ||
+                       e.category.toLowerCase().indexOf(query) !== -1;
+            });
+            renderEvents(filtered);
+        }
+
+        function openPostModal() { document.getElementById("postModal").style.display = "flex"; }
+        function closeModal(id) { document.getElementById(id).style.display = "none"; }
+
+        async function submitEvent() {
+            const title = document.getElementById("evTitle").value;
+            const category = document.getElementById("evCat").value;
+            const date = document.getElementById("evDate").value;
+            const venue = document.getElementById("evVenue").value;
+            const price = document.getElementById("evPrice").value;
+
+            if(!title || !venue || !price) { alert("Please complete all required fields."); return; }
+
+            const res = await fetch("/api/events", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ title: title, category: category, date: date, venue: venue, price: price })
+            });
+
+            if(res.ok) {
+                closeModal("postModal");
+                loadEvents();
+            }
+        }
+
+        function openBuyModal(eventId) {
+            selectedEventId = eventId;
+            const ev = allEvents.find(function(e) { return e.id === eventId; });
+            if(!ev) return;
+            document.getElementById("buyModalTitle").innerText = "Buy Tickets: " + ev.title;
+            document.getElementById("buyModalMeta").innerText = ev.venue + " - R" + ev.price;
+            document.getElementById("buyResult").style.display = "none";
+            document.getElementById("buyModal").style.display = "flex";
+        }
+
+        async function confirmPurchase() {
+            const buyerName = document.getElementById("buyerName").value;
+            const tierName = document.getElementById("buyerTier").value;
+            const resDiv = document.getElementById("buyResult");
+
+            if(!buyerName) { alert("Please enter full name."); return; }
+
+            const res = await fetch("/api/tickets/buy", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ buyerName: buyerName, eventId: selectedEventId, tierName: tierName })
+            });
+
+            const data = await res.json();
+            if(data.success) {
+                resDiv.style.background = "#d1fae5";
+                resDiv.style.color = "#065f46";
+                resDiv.style.display = "block";
+                resDiv.innerHTML = "[SUCCESS] Ticket Created!<br>Ticket ID: <b>" + data.ticket.ticketId + "</b>";
+            }
+        }
+
+        loadEvents();
+    </script>
+</body>
+</html>

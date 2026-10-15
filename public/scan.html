@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>EL Pulse - Door Scanner</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f4f4f9; padding: 50px; text-align: center; }
+        .card { background: #fff; padding: 25px; border-radius: 8px; max-width: 450px; margin: 0 auto; text-align: left; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        input { width: 65%; padding: 10px; margin-right: 5px; border: 1px solid #ccc; border-radius: 4px; }
+        button { background: #e11d48; color: #fff; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #be123c; }
+        #result { margin-top: 20px; padding: 15px; border-radius: 5px; display: none; font-weight: bold; }
+        .success { background: #d1fae5; color: #065f46; border: 1px solid #10b981; }
+        .error { background: #fee2e2; color: #991b1b; border: 1px solid #ef4444; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>?? Door Scanner</h2>
+        <p>Enter or scan ticket ID to verify entry.</p>
+        <div style="display: flex; gap: 5px;">
+            <input type="text" id="ticketIdInput" placeholder="e.g. EL-YHJH">
+            <button onclick="verifyTicket()">Verify Entry</button>
+        </div>
+        <div id="result"></div>
+    </div>
+    <script>
+        async function verifyTicket() {
+            const ticketId = document.getElementById("ticketIdInput").value.trim();
+            const resultDiv = document.getElementById("result");
+            if (!ticketId) { alert("Please enter a ticket ID"); return; }
+            try {
+                const res = await fetch("/api/tickets/scan", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ ticketId })
+                });
+                const data = await res.json();
+                resultDiv.style.display = "block";
+                if (res.ok && data.valid) {
+                    resultDiv.className = "success";
+                    resultDiv.innerHTML = "? " + data.message + "<br><small>Buyer: " + data.ticket.buyerName + " (" + data.ticket.tierName + ")</small>";
+                } else {
+                    resultDiv.className = "error";
+                    resultDiv.innerHTML = "? " + (data.message || "Access Denied");
+                }
+            } catch (err) {
+                resultDiv.style.display = "block";
+                resultDiv.className = "error";
+                resultDiv.innerHTML = "? Server connection error.";
+            }
+        }
+    </script>
+</body>
+</html>
