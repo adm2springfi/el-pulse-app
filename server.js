@@ -115,4 +115,158 @@ function authenticatePlanner(req, res, next) {
 app.post('/api/auth/register-planner', async (req, res) => {
   try {
     const { name, email, password, payfastMerchantId } = req.body;
-    if (!name || !email || !password ||
+    if (!name || !email || !password || !payfastMerchantId) {
+      return res.status(400).json({ success: false, message: 'All fields are required.' });
+    }
+
+    const existingUser = await prisma.user.findUnique({ where: { email } });
+    if (existingUser) return res.status(400).json({ success: false, message: 'Email address is already registered.' });
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    const user = await prisma.user.create({
+      data: { name, email, passwordHash, payfastMerchantId, role: 'PLANNER' }
+    });
+
+    res.status(201).json({ success: true, message: 'Registered successfully!' });
+  } catch (err) {
+    console.error("Register Error:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ success: false, message: 'Email and password are required.' });
+    }
+
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) return res.status(400).json({ success: false, message: 'Invalid email or password.' });
+
+    const validPassword = await bcrypt.compare(password, user.passwordHash);
+    if (!validPassword) return res.status(400).json({ success: false, message: 'Invalid email or password.' });
+
+    const token = jwt.sign(
+      { id: user.id, email: user.email, role: user.role, payfastMerchantId: user.payfastMerchantId },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    res.status(200).json({ success: true, token, user: { name: user.name, role: user.role } });
+  } catch (err) {
+    console.error("Login Error:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// -------------------------------------------------------------
+// EVENT MANAGEMENT ROUTES
+// -------------------------------------------------------------
+app.get('/api/events', async (req, res) => {
+  try {
+    const events = await prisma.event.findMany({ orderBy: { createdAt: 'desc' } });
+    res.json({ success: true, events });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.get('/api/events/my-events', authenticatePlanner, async (req, res) => {
+  try {
+    const myEvents = await prisma.event.findMany({
+      where: { organizerId: req.user.id },
+      orderBy: { createdAt: 'desc' }
+    });
+    res.json({ success: true, events: myEvents });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.post('/api/events/create', authenticatePlanner, upload.single('bannerImage'), async (req, res) => {
+  try {
+    const { title, description, location, price, capacity, imageUrl } = req.body;
+    let finalImageUrl = req.file ? `/uploads/${req.file.filename}` : (imageUrl || 'https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=800&q=80');
+
+    const event = await prisma.event.create({
+      data: {
+        title,
+        description: description || '',
+        location: location || 'East London',
+        price: parseFloat(price),
+        capacity: parseInt(capacity),
+        available: parseInt(capacity),
+        imageUrl: finalImageUrl,
+        payfastMerchantId: req.user.payfastMerchantId,
+        organizerId: req.user.id
+      }
+    });
+
+    res.status(201).json({ success: true, message: 'Event created!', event });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// -------------------------------------------------------------
+// CHECKOUT & PAYFAST WEBHOOK
+// -------------------------------------------------------------
+app.post('/api/tickets/checkout-split', async (req, res) => {
+  try {
+    const { eventId, quantity } = req.body;
+    const qty = parseInt(quantity) || 1;
+
+    const event = await prisma.event.findUnique({ where: { id: eventId } });
+    if (!event) return res.status(404).json({ success: false, message: 'Event not found.' });
+
+    const totalAmount = event.price * qty;
+    const platformFee = totalAmount * 0.05;
+    const organizerAmount = totalAmount - platformFee;
+
+    const payfastData = {
+      merchant_id: process.env.PAYFAST_MERCHANT_ID || '10000100',
+      merchant_key: process.env.PAYFAST_MERCHANT_KEY || '46f0cd694581a',
+      return_url: 'https://el-pulse-app-1.onrender.com/index.html?payment=success',
+      cancel_url: 'https://el-pulse-app-1.onrender.com/index.html?payment=cancelled',
+      amount: totalAmount.toFixed(2),
+      item_name: `EL Pulse Ticket (${qty}x) - ${event.title}`,
+      setup_split: {
+        split_merchant_id: event.payfastMerchantId,
+        split_percentage: 95,
+        amount: totalAmount.toFixed(2)
+      }
+    };
+
+    res.json({
+      success: true,
+      checkoutUrl: 'https://sandbox.payfast.co.za/eng/process',
+      payfastData,
+      breakdown: {
+        total: totalAmount.toFixed(2),
+        platformFee5Percent: platformFee.toFixed(2),
+        organizerPayout95Percent: organizerAmount.toFixed(2)
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.post('/api/tickets/payfast-webhook', async (req, res) => {
+  try {
+    const { payment_status, item_name, amount_gross, email_address, custom_str1, custom_str2 } = req.body;
+
+    if (payment_status === 'COMPLETE') {
+      const ticketId = 'ELP-' + Math.floor(100000 + Math.random() * 900000);
+      await sendTicketEmail(email_address, 'Valued Guest', item_name, custom_str2 || '1', amount_gross, ticketId);
+      if (custom_str1) await sendWhatsAppTicket(custom_str1, item_name, custom_str2 || '1', ticketId);
+    }
+    res.status(200).send('OK');
+  } catch (err) {
+    res.status(500).send('Error');
+  }
+});
+
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, () => console.log(`EL Pulse Server running on port ${PORT}`));
