@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.tailwindcss.com"></script>
-  <title>EL Pulse - Event Planner Login</title>
+  <title>EL Pulse - Organizer Login</title>
 </head>
 <body class="bg-gray-900 text-white min-h-screen flex items-center justify-center p-6 font-sans">
 
@@ -40,7 +40,6 @@
   </div>
 
   <script>
-    // If already logged in, skip login page
     if (localStorage.getItem('el_pulse_planner_token')) {
       window.location.href = '/organizer.html';
     }
@@ -69,7 +68,6 @@
         submitBtn.disabled = false;
 
         if (data.success) {
-          // Store JWT token and profile info locally
           localStorage.setItem('el_pulse_planner_token', data.token);
           localStorage.setItem('el_pulse_user_name', data.user.name);
           localStorage.setItem('el_pulse_user_role', data.user.role);
