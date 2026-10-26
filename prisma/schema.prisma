@@ -7,22 +7,36 @@ generator client {
   provider = "prisma-client-js"
 }
 
+model User {
+  id                String   @id @default(uuid())
+  name              String
+  email             String   @unique
+  passwordHash      String
+  payfastMerchantId String
+  role              String   @default("PLANNER")
+  createdAt         DateTime @default(now())
+  events            Event[]
+}
+
 model Event {
-  id          String   @id @default(uuid())
-  title       String
-  description String?
-  location    String
-  date        DateTime
-  price       Float    @default(0.0)
-  capacity    Int      @default(100)
-  imageUrl    String?
-  tickets     Ticket[]
-  createdAt   DateTime @default(now())
+  id                String   @id @default(uuid())
+  title             String
+  description       String?
+  location          String   @default("East London")
+  date              DateTime @default(now())
+  price             Float    @default(0.0)
+  capacity          Int      @default(100)
+  available         Int      @default(100)
+  imageUrl          String?
+  payfastMerchantId String
+  organizerId       String
+  organizer         User     @relation(fields: [organizerId], references: [id], onDelete: Cascade)
+  tickets           Ticket[]
+  createdAt         DateTime @default(now())
 }
 
 model Ticket {
   id        String   @id @default(uuid())
-  userId    String
   eventId   String
   event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
   qrCode    String   @unique
