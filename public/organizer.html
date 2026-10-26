@@ -27,16 +27,20 @@
   <!-- Main Content -->
   <main class="max-w-5xl mx-auto px-6 pt-32 pb-24 space-y-8">
     
-    <!-- Welcome Header & Scanner Shortcut -->
+    <!-- Welcome Header & Apps -->
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gray-900 p-6 rounded-2xl border border-gray-800">
       <div>
         <h1 class="text-3xl font-black text-white" id="welcomeUser">Welcome, Organizer</h1>
-        <p class="text-gray-400 text-sm mt-1">Manage your upcoming live events and track ticket sales.</p>
+        <p class="text-gray-400 text-sm mt-1">Manage live events, door entry scans, and photo galleries.</p>
       </div>
-      <div class="flex flex-col sm:flex-row items-center gap-3">
-        <a href="/scanner.html" class="inline-flex items-center space-x-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold px-5 py-3 rounded-xl text-sm transition shadow-lg shadow-emerald-600/20">
-          <i class="fa-solid fa-qrcode text-lg"></i>
-          <span>Open Door Scanner App</span>
+      <div class="flex flex-wrap items-center gap-3">
+        <a href="/scanner.html" class="inline-flex items-center space-x-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2.5 rounded-xl text-xs transition shadow-lg">
+          <i class="fa-solid fa-qrcode"></i>
+          <span>Door Scanner</span>
+        </a>
+        <a href="/gallery.html" target="_blank" class="inline-flex items-center space-x-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-4 py-2.5 rounded-xl text-xs transition shadow-lg">
+          <i class="fa-solid fa-images"></i>
+          <span>View Gallery</span>
         </a>
       </div>
     </div>
@@ -89,7 +93,6 @@
         <div>
           <label class="block text-sm text-gray-300 mb-1">Upload Event Banner Image (Poster / Flyer)</label>
           <input type="file" id="bannerImage" accept="image/*" class="w-full bg-gray-800 p-3 rounded-xl border border-gray-700 text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-indigo-600 file:text-white hover:file:bg-indigo-500 cursor-pointer">
-          <p class="text-xs text-gray-500 mt-1">Supported formats: JPG, PNG, WEBP (Max 5MB)</p>
         </div>
 
         <button type="submit" id="submitBtn" class="w-full bg-emerald-600 hover:bg-emerald-500 font-bold py-3.5 rounded-xl text-white transition shadow-lg">
@@ -98,6 +101,40 @@
       </form>
 
       <div id="status" class="mt-4 text-center text-sm font-semibold p-3 rounded-lg hidden"></div>
+    </div>
+
+    <!-- Upload Gallery Photo Section -->
+    <div class="bg-gray-900 p-8 rounded-2xl shadow-xl border border-gray-800">
+      <h2 class="text-xl font-bold mb-6 text-indigo-400 flex items-center space-x-2">
+        <i class="fa-solid fa-cloud-arrow-up"></i>
+        <span>Upload Event Picture to Gallery</span>
+      </h2>
+
+      <form id="uploadPhotoForm" class="space-y-5">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div>
+            <label class="block text-sm text-gray-300 mb-1">Photo Title / Caption</label>
+            <input type="text" id="photoTitle" required placeholder="e.g. Crowd vibe at Main Stage" class="w-full bg-gray-800 p-3 rounded-xl border border-gray-700 focus:outline-none focus:border-indigo-500 text-white">
+          </div>
+          <div>
+            <label class="block text-sm text-gray-300 mb-1">Link to Specific Event (Optional)</label>
+            <select id="photoEventId" class="w-full bg-gray-800 p-3 rounded-xl border border-gray-700 focus:outline-none focus:border-indigo-500 text-white text-sm">
+              <option value="">-- General Gallery / All Events --</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-sm text-gray-300 mb-1">Select Image File</label>
+          <input type="file" id="galleryPhotoFile" accept="image/*" required class="w-full bg-gray-800 p-3 rounded-xl border border-gray-700 text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-indigo-600 file:text-white hover:file:bg-indigo-500 cursor-pointer">
+        </div>
+
+        <button type="submit" id="uploadPhotoBtn" class="w-full bg-indigo-600 hover:bg-indigo-500 font-bold py-3.5 rounded-xl text-white transition shadow-lg">
+          Upload Photo to Public Gallery
+        </button>
+      </form>
+
+      <div id="photoStatus" class="mt-4 text-center text-sm font-semibold p-3 rounded-lg hidden"></div>
     </div>
 
     <!-- My Listed Events -->
@@ -140,39 +177,52 @@
 
     async function loadMyEvents() {
       const grid = document.getElementById('myEventsGrid');
+      const select = document.getElementById('photoEventId');
+      
       try {
         const res = await fetch('/api/events/my-events', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await res.json();
 
-        if (!data.success || !data.events || data.events.length === 0) {
-          grid.innerHTML = '<p class="text-gray-500 col-span-full text-center py-8 bg-gray-900 rounded-2xl border border-gray-800">No events created yet.</p>';
-          return;
-        }
+        if (data.success && data.events) {
+          // Populate event dropdown
+          select.innerHTML = '<option value="">-- General Gallery / All Events --</option>';
+          data.events.forEach(e => {
+            const opt = document.createElement('option');
+            opt.value = e.id;
+            opt.textContent = e.title;
+            select.appendChild(opt);
+          });
 
-        grid.innerHTML = data.events.map(e => {
-          const dateStr = e.date ? new Date(e.date).toLocaleString('en-ZA', { dateStyle: 'medium', timeStyle: 'short' }) : 'TBA';
-          return `
-            <div class="bg-gray-900 rounded-2xl overflow-hidden border border-gray-800 flex flex-col">
-              <img src="${e.imageUrl}" alt="${e.title}" class="h-40 w-full object-cover">
-              <div class="p-5 flex-1 flex flex-col justify-between">
-                <div>
-                  <div class="flex justify-between items-start mb-2">
-                    <h3 class="text-lg font-bold text-white">${e.title}</h3>
-                    <span class="bg-indigo-900/60 text-indigo-300 text-xs px-2.5 py-1 rounded-md border border-indigo-700/40">R${e.price.toFixed(2)}</span>
-                  </div>
-                  <p class="text-gray-400 text-xs mb-3 line-clamp-2">${e.description || 'No description.'}</p>
-                  <div class="text-xs text-gray-400 space-y-1">
-                    <p>📅 <strong class="text-indigo-300">${dateStr}</strong></p>
-                    <p>📍 ${e.location}</p>
-                    <p>🎟️ Tickets Available: ${e.available} / ${e.capacity}</p>
+          if (data.events.length === 0) {
+            grid.innerHTML = '<p class="text-gray-500 col-span-full text-center py-8 bg-gray-900 rounded-2xl border border-gray-800">No events created yet.</p>';
+            return;
+          }
+
+          grid.innerHTML = data.events.map(e => {
+            const dateStr = e.date ? new Date(e.date).toLocaleString('en-ZA', { dateStyle: 'medium', timeStyle: 'short' }) : 'TBA';
+            return `
+              <div class="bg-gray-900 rounded-2xl overflow-hidden border border-gray-800 flex flex-col">
+                <img src="${e.imageUrl}" alt="${e.title}" class="h-40 w-full object-cover">
+                <div class="p-5 flex-1 flex flex-col justify-between">
+                  <div>
+                    <div class="flex justify-between items-start mb-2">
+                      <h3 class="text-lg font-bold text-white">${e.title}</h3>
+                      <span class="bg-indigo-900/60 text-indigo-300 text-xs px-2.5 py-1 rounded-md border border-indigo-700/40">R${e.price.toFixed(2)}</span>
+                    </div>
+                    <p class="text-gray-400 text-xs mb-3 line-clamp-2">${e.description || 'No description.'}</p>
+                    <div class="text-xs text-gray-400 space-y-1">
+                      <p>📅 <strong class="text-indigo-300">${dateStr}</strong></p>
+                      <p>📍 ${e.location}</p>
+                      <p>🎟️ Tickets Available: ${e.available} / ${e.capacity}</p>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          `;
-        }).join('');
+            `;
+          }).join('');
+        }
       } catch (err) {
         grid.innerHTML = '<p class="text-red-400 col-span-full text-center py-8">Failed to load your events.</p>';
       }
@@ -224,6 +274,51 @@
       } catch (err) {
         submitBtn.disabled = false;
         status.innerText = "Connection error. Please try again.";
+        status.className = "mt-4 text-center text-sm font-semibold p-3 rounded-lg bg-red-950 text-red-300 border border-red-800";
+      }
+    });
+
+    document.getElementById('uploadPhotoForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const status = document.getElementById('photoStatus');
+      const btn = document.getElementById('uploadPhotoBtn');
+
+      status.classList.remove('hidden');
+      status.innerText = "Uploading photo...";
+      status.className = "mt-4 text-center text-sm font-semibold p-3 rounded-lg bg-gray-800 text-gray-300";
+      btn.disabled = true;
+
+      const formData = new FormData();
+      formData.append('title', document.getElementById('photoTitle').value.trim());
+      formData.append('eventId', document.getElementById('photoEventId').value);
+      
+      const file = document.getElementById('galleryPhotoFile').files[0];
+      if (file) {
+        formData.append('photo', file);
+      }
+
+      try {
+        const res = await fetch('/api/gallery/upload', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+          body: formData
+        });
+
+        const data = await res.json();
+        btn.disabled = false;
+
+        if (data.success) {
+          status.innerText = "Photo successfully added to public gallery!";
+          status.className = "mt-4 text-center text-sm font-semibold p-3 rounded-lg bg-green-950 text-green-300 border border-green-800";
+          document.getElementById('uploadPhotoForm').reset();
+          setTimeout(() => status.classList.add('hidden'), 3000);
+        } else {
+          status.innerText = data.message || "Failed to upload photo.";
+          status.className = "mt-4 text-center text-sm font-semibold p-3 rounded-lg bg-red-950 text-red-300 border border-red-800";
+        }
+      } catch (err) {
+        btn.disabled = false;
+        status.innerText = "Network error. Please try again.";
         status.className = "mt-4 text-center text-sm font-semibold p-3 rounded-lg bg-red-950 text-red-300 border border-red-800";
       }
     });

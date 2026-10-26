@@ -45,12 +45,12 @@ async function seedDefaultUser() {
   }
 }
 
-// Multer storage configuration for banners
+// Multer storage configuration for banners and photos
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, 'uploads/'),
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, 'banner-' + uniqueSuffix + path.extname(file.originalname));
+    cb(null, 'media-' + uniqueSuffix + path.extname(file.originalname));
   }
 });
 const upload = multer({ storage });
@@ -239,6 +239,44 @@ app.post('/api/events/create', authenticatePlanner, upload.single('bannerImage')
 });
 
 // -------------------------------------------------------------
+// GALLERY PHOTO ROUTES (Organizers upload, Customers download)
+// -------------------------------------------------------------
+app.get('/api/gallery', async (req, res) => {
+  try {
+    const photos = await prisma.photoGallery.findMany({
+      include: { event: true },
+      orderBy: { createdAt: 'desc' } // ordered by date posted (newest first)
+    });
+    res.json({ success: true, photos });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.post('/api/gallery/upload', authenticatePlanner, upload.single('photo'), async (req, res) => {
+  try {
+    const { title, eventId } = req.body;
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'Please select a photo to upload.' });
+    }
+
+    const photo = await prisma.photoGallery.create({
+      data: {
+        title: title || 'Event Photo',
+        imageUrl: `/uploads/${req.file.filename}`,
+        eventId: eventId && eventId !== '' ? eventId : null,
+        organizerId: req.user.id
+      }
+    });
+
+    res.status(201).json({ success: true, message: 'Photo uploaded to gallery!', photo });
+  } catch (err) {
+    console.error("Gallery Upload Error:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// -------------------------------------------------------------
 // DOOR SCANNER TICKET VALIDATION ROUTE
 // -------------------------------------------------------------
 app.post('/api/tickets/verify-scan', authenticatePlanner, async (req, res) => {
@@ -300,3 +338,46 @@ app.post('/api/tickets/checkout-split', async (req, res) => {
       notify_url: 'https://el-pulse-app-1.onrender.com/api/tickets/payfast-webhook',
       name_first: 'Valued',
       name_last: 'Guest',
+      email_address: purchaserEmail || 'guest@elpulse.co.za',
+      m_payment_id: 'ELP-' + Date.now(),
+      amount: totalAmount.toFixed(2),
+      item_name: `EL Pulse Ticket (${qty}x) - ${event.title}`,
+      custom_str1: purchaserPhone || '',
+      custom_str2: qty.toString()
+    };
+
+    res.json({
+      success: true,
+      checkoutUrl: 'https://sandbox.payfast.co.za/eng/process',
+      payfastData,
+      breakdown: {
+        total: totalAmount.toFixed(2),
+        platformFee5Percent: platformFee.toFixed(2),
+        organizerPayout95Percent: organizerAmount.toFixed(2)
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.post('/api/tickets/payfast-webhook', async (req, res) => {
+  try {
+    const { payment_status, item_name, amount_gross, email_address, custom_str1, custom_str2 } = req.body;
+
+    if (payment_status === 'COMPLETE') {
+      const ticketId = 'ELP-' + Math.floor(100000 + Math.random() * 900000);
+      await sendTicketEmail(email_address, 'Valued Guest', item_name, custom_str2 || '1', amount_gross, ticketId);
+      if (custom_str1) await sendWhatsAppTicket(custom_str1, item_name, custom_str2 || '1', ticketId);
+    }
+    res.status(200).send('OK');
+  } catch (err) {
+    res.status(500).send('Error');
+  }
+});
+
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, async () => {
+  console.log(`EL Pulse Server running on port ${PORT}`);
+  await seedDefaultUser();
+});

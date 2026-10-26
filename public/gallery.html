@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <title>EL Pulse - Event Photo Gallery</title>
+</head>
+<body class="bg-gray-950 text-white font-sans min-h-screen">
+
+  <!-- Navigation Bar -->
+  <nav class="border-b border-gray-800/80 bg-gray-950/80 backdrop-blur-lg fixed w-full top-0 z-50">
+    <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+      <a href="/index.html" class="flex items-center space-x-2">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-pink-500 flex items-center justify-center font-black text-white shadow-lg">
+          <i class="fa-solid fa-bolt text-lg"></i>
+        </div>
+        <span class="text-xl font-black tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-white via-indigo-200 to-indigo-400">
+          EL PULSE <span class="text-indigo-500 font-light text-sm">GALLERY</span>
+        </span>
+      </a>
+      <div class="flex items-center space-x-4">
+        <a href="/index.html" class="text-sm font-semibold text-gray-300 hover:text-white transition">← Back to Events</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Gallery Header -->
+  <header class="pt-36 pb-12 px-6 text-center max-w-4xl mx-auto">
+    <h1 class="text-4xl md:text-5xl font-black tracking-tight mb-4 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-purple-300 to-pink-500">
+      Event Memories & Photos
+    </h1>
+    <p class="text-gray-400 text-base md:text-lg">
+      Browse and download high-resolution pictures from past East London events. Ordered from newest to oldest.
+    </p>
+  </header>
+
+  <!-- Gallery Grid -->
+  <main class="max-w-7xl mx-auto px-6 pb-28">
+    <div id="galleryGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+      <div class="col-span-full text-center py-20 space-y-3">
+        <i class="fa-solid fa-circle-notch animate-spin text-3xl text-indigo-500"></i>
+        <p class="text-gray-400 text-sm">Loading event photos...</p>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-gray-900 bg-gray-950 py-12 px-6 text-center text-gray-500 text-xs">
+    <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+      <div class="flex items-center space-x-2">
+        <i class="fa-solid fa-bolt text-indigo-500"></i>
+        <span class="font-bold text-gray-300">EL Pulse Gallery</span>
+      </div>
+      <p>© 2026 EL Pulse. All event photography reserved.</p>
+    </div>
+  </footer>
+
+  <script>
+    async function loadGallery() {
+      const grid = document.getElementById('galleryGrid');
+      try {
+        const res = await fetch('/api/gallery');
+        const data = await res.json();
+
+        if (!data.photos || data.photos.length === 0) {
+          grid.innerHTML = `
+            <div class="col-span-full bg-gray-900/40 border border-dashed border-gray-800 rounded-3xl p-16 text-center space-y-4">
+              <div class="w-16 h-16 bg-indigo-500/10 text-indigo-400 rounded-2xl flex items-center justify-center mx-auto text-2xl">
+                <i class="fa-regular fa-image"></i>
+              </div>
+              <h3 class="text-xl font-bold text-white">No Photos Posted Yet</h3>
+              <p class="text-gray-400 text-sm max-w-md mx-auto">Organizers will upload event pictures here soon!</p>
+            </div>
+          `;
+          return;
+        }
+
+        grid.innerHTML = data.photos.map(p => {
+          const datePosted = new Date(p.createdAt).toLocaleDateString('en-ZA', { dateStyle: 'medium' });
+          const eventTitle = p.event ? p.event.title : 'General Event';
+          return `
+            <div class="group bg-gray-900 rounded-2xl overflow-hidden border border-gray-800 hover:border-indigo-500/50 flex flex-col transition shadow-lg">
+              <div class="relative h-60 w-full overflow-hidden bg-gray-950">
+                <img src="${p.imageUrl}" alt="${p.title}" class="h-full w-full object-cover group-hover:scale-105 transition duration-500">
+                <div class="absolute top-3 left-3 bg-gray-950/80 backdrop-blur-md text-[10px] font-bold text-indigo-300 px-2.5 py-1 rounded-full border border-gray-800">
+                  ${eventTitle}
+                </div>
+              </div>
+              <div class="p-4 flex-1 flex flex-col justify-between space-y-3">
+                <div>
+                  <h3 class="font-bold text-white text-base truncate">${p.title}</h3>
+                  <p class="text-xs text-gray-500 mt-0.5">Posted on ${datePosted}</p>
+                </div>
+                <a href="${p.imageUrl}" download="el-pulse-photo.png" target="_blank" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 rounded-xl text-xs transition flex items-center justify-center space-x-2 shadow">
+                  <i class="fa-solid fa-download"></i>
+                  <span>Download Photo</span>
+                </a>
+              </div>
+            </div>
+          `;
+        }).join('');
+      } catch (err) {
+        grid.innerHTML = '<p class="text-red-400 col-span-full text-center py-16">Failed to load photo gallery.</p>';
+      }
+    }
+
+    loadGallery();
+  </script>
+</body>
+</html>
