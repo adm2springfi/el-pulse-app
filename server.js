@@ -23,7 +23,7 @@ if (!fs.existsSync('./uploads')) {
   fs.mkdirSync('./uploads');
 }
 
-// Auto-seed default planner account on startup so it never gets lost on deploy reset
+// Auto-seed default planner account on startup
 async function seedDefaultUser() {
   try {
     const existing = await prisma.user.findUnique({ where: { email: 'springfieldleroy@gmail.com' } });

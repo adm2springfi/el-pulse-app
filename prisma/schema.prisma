@@ -42,4 +42,38 @@ model Ticket {
   qrCode    String   @unique
   status    String   @default("VALID")
   createdAt DateTime @default(now())
+}datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id                String   @id @default(uuid())
+  name              String
+  email             String   @unique
+  passwordHash      String
+  payfastMerchantId String
+  role              String   @default("PLANNER")
+  events            Event[]
+  createdAt         DateTime @default(now())
+}
+
+model Event {
+  id                String   @id @default(uuid())
+  title             String
+  description       String?
+  location          String
+  eventDate         String?
+  price             Float
+  capacity          Int
+  available         Int
+  imageUrl          String
+  payfastMerchantId String
+  organizerId       String
+  organizer         User     @relation(fields: [organizerId], references: [id])
+  createdAt         DateTime @default(now())
 }
