@@ -4,25 +4,127 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.tailwindcss.com"></script>
-  <title>EL Pulse Tickets - East London Event Platform</title>
+  <title>EL Pulse Tickets - Live Events in East London</title>
 </head>
-<body class="bg-gray-900 text-white min-h-screen">
-  <nav class="border-b border-gray-800 bg-gray-950 px-6 py-4 flex justify-between items-center">
-    <h1 class="text-2xl font-black text-indigo-500 tracking-wider">EL PULSE TICKETS</h1>
-    <div class="space-x-4 text-sm font-semibold">
-      <a href="/events.html" class="hover:text-indigo-400">Browse Events</a>
-      <a href="/planner-register.html" class="bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded text-white">Organizer Register</a>
-      <a href="/organizer.html" class="border border-indigo-500 px-4 py-2 rounded text-indigo-400 hover:bg-indigo-950">Organizer Dashboard</a>
+<body class="bg-gray-950 text-white font-sans min-h-screen">
+
+  <!-- Navigation Bar -->
+  <nav class="border-b border-gray-800 bg-gray-900/90 backdrop-blur sticky top-0 z-50 px-6 py-4 flex justify-between items-center">
+    <a href="/" class="text-2xl font-black text-indigo-500 tracking-wider">EL PULSE TICKETS</a>
+    <div class="space-x-4 text-sm font-semibold flex items-center">
+      <a href="#events-section" class="hover:text-indigo-400 transition hidden sm:inline">Browse Events</a>
+      <a href="/planner-register.html" class="bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-lg text-white transition">Organizer Register</a>
+      <a href="/organizer.html" class="border border-indigo-500/50 px-4 py-2 rounded-lg text-indigo-400 hover:bg-indigo-950 transition">Dashboard</a>
     </div>
   </nav>
 
-  <header class="text-center py-20 px-6 max-w-4xl mx-auto">
-    <h2 class="text-5xl font-extrabold mb-6">Discover Live Events in East London</h2>
-    <p class="text-gray-400 text-lg mb-8">Seamless ticket sales for event planners. Direct 95% automated PayFast payouts with zero upfront fees.</p>
-    <div class="space-x-4">
-      <a href="/events.html" class="bg-indigo-600 hover:bg-indigo-500 px-8 py-3 rounded-lg font-bold text-lg inline-block">Buy Tickets</a>
-      <a href="/planner-register.html" class="bg-gray-800 hover:bg-gray-700 px-8 py-3 rounded-lg font-bold text-lg inline-block">Host an Event</a>
+  <!-- Hero Section with Background Image Banner -->
+  <header class="relative bg-cover bg-center py-28 px-6 text-center border-b border-gray-800" style="background-image: linear-gradient(to bottom, rgba(3, 7, 18, 0.75), rgba(3, 7, 18, 0.95)), url('https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1600&q=80');">
+    <div class="max-w-4xl mx-auto space-y-6">
+      <span class="inline-block bg-indigo-500/20 text-indigo-400 font-bold px-4 py-1.5 rounded-full text-sm border border-indigo-500/30">
+        🔥 What's Happening in East London
+      </span>
+      <h1 class="text-4xl md:text-6xl font-black tracking-tight text-white drop-shadow-md">
+        Discover Live Events in East London
+      </h1>
+      <p class="text-gray-300 text-lg md:text-xl max-w-2xl mx-auto leading-relaxed">
+        Get direct access to concert tickets, beach festivals, nightlife, and community gatherings.
+      </p>
+      <div class="pt-4 flex justify-center gap-4">
+        <a href="#events-section" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-8 py-3.5 rounded-xl shadow-lg shadow-indigo-600/30 transition transform hover:-translate-y-0.5">
+          Explore Events
+        </a>
+        <a href="/planner-register.html" class="bg-gray-800 hover:bg-gray-700 text-gray-200 font-bold px-8 py-3.5 rounded-xl border border-gray-700 transition">
+          Host an Event
+        </a>
+      </div>
     </div>
   </header>
+
+  <!-- Live Events Section -->
+  <section id="events-section" class="max-w-7xl mx-auto px-6 py-16">
+    <div class="flex justify-between items-end mb-10">
+      <div>
+        <h2 class="text-3xl font-extrabold text-white">Upcoming Events</h2>
+        <p class="text-gray-400 text-sm mt-1">Book your tickets online with safe PayFast checkout</p>
+      </div>
+      <button onclick="loadEvents()" class="text-sm text-indigo-400 hover:text-indigo-300 font-semibold">🔄 Refresh</button>
+    </div>
+
+    <!-- Dynamic Event Cards Grid -->
+    <div id="eventsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+      <div class="col-span-full text-center py-12 text-gray-400">Loading live events...</div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="border-t border-gray-800 bg-gray-900 py-8 text-center text-gray-500 text-sm">
+    <p>© 2026 EL Pulse Tickets. All rights reserved.</p>
+  </footer>
+
+  <script>
+    async function loadEvents() {
+      const grid = document.getElementById('eventsGrid');
+      try {
+        const res = await fetch('/api/events');
+        const data = await res.json();
+        
+        if (!data.events || data.events.length === 0) {
+          grid.innerHTML = `
+            <div class="col-span-full bg-gray-900 border border-gray-800 rounded-2xl p-12 text-center">
+              <p class="text-gray-400 text-lg font-medium">No active events listed right now.</p>
+              <p class="text-gray-500 text-sm mt-2">Are you an organizer? Post your event today!</p>
+              <a href="/planner-register.html" class="mt-4 inline-block bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold px-5 py-2.5 rounded-lg">Register as Event Planner</a>
+            </div>
+          `;
+          return;
+        }
+
+        grid.innerHTML = data.events.map(e => `
+          <div class="bg-gray-900 rounded-2xl overflow-hidden border border-gray-800 hover:border-indigo-500/50 transition duration-300 shadow-xl flex flex-col justify-between group">
+            <div class="relative h-52 w-full overflow-hidden bg-gray-800">
+              <img src="${e.imageUrl || 'https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=800&q=80'}" 
+                   class="h-full w-full object-cover group-hover:scale-105 transition duration-500" 
+                   alt="${e.title}">
+              <div class="absolute top-3 right-3 bg-gray-950/80 backdrop-blur text-green-400 font-black px-3 py-1 rounded-full text-sm border border-green-500/30">
+                R${e.price.toFixed(2)}
+              </div>
+            </div>
+            
+            <div class="p-6 flex-1 flex flex-col justify-between space-y-4">
+              <div>
+                <span class="text-xs font-bold text-indigo-400 uppercase tracking-wider">📍 ${e.location}</span>
+                <h3 class="font-black text-xl text-white mt-1 group-hover:text-indigo-400 transition">${e.title}</h3>
+                <p class="text-xs text-gray-400 mt-1">By ${e.organizer?.name || 'Event Planner'}</p>
+                <p class="text-sm text-gray-300 mt-3 line-clamp-2">${e.description || 'No description provided.'}</p>
+              </div>
+              
+              <button onclick="checkout('${e.id}')" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl transition shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2">
+                🎟️ Buy Ticket
+              </button>
+            </div>
+          </div>
+        `).join('');
+      } catch (err) {
+        grid.innerHTML = `<div class="col-span-full text-center py-12 text-red-400">Failed to load events.</div>`;
+      }
+    }
+
+    async function checkout(eventId) {
+      const res = await fetch('/api/tickets/checkout-split', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ eventId, quantity: 1 })
+      });
+      const data = await res.json();
+      if (data.success && data.checkoutUrl) {
+        alert(`Proceeding to PayFast Split Checkout.\nTotal: R${data.breakdown.total}\nOrganizer Payout (95%): R${data.breakdown.organizerPayout95Percent}\nPlatform Fee (5%): R${data.breakdown.platformFee5Percent}`);
+      } else {
+        alert(data.message || 'Checkout failed');
+      }
+    }
+
+    loadEvents();
+  </script>
 </body>
 </html>
