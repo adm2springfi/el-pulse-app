@@ -1,0 +1,31 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Event {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  location    String
+  date        DateTime
+  price       Float    @default(0.0)
+  capacity    Int      @default(100)
+  imageUrl    String?
+  tickets     Ticket[]
+  createdAt   DateTime @default(now())
+}
+
+model Ticket {
+  id        String   @id @default(uuid())
+  userId    String
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  qrCode    String   @unique
+  status    String   @default("VALID")
+  createdAt DateTime @default(now())
+}
