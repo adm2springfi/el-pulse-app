@@ -1,383 +1,227 @@
 ﻿const express = require('express');
-const crypto = require('crypto');
-const jwt = require('jsonwebtoken');
+const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
+const session = require('express-session');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const nodemailer = require('nodemailer');
-const twilio = require('twilio');
-const { PrismaClient } = require('@prisma/client');
 
-// Initialize Prisma Client
 const prisma = new PrismaClient();
 const app = express();
+const PORT = process.env.PORT || 3000;
 
+// Middleware setup
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
-app.use('/uploads', express.static('uploads'));
 
-// Ensure 'uploads' directory exists
-if (!fs.existsSync('./uploads')) {
-  fs.mkdirSync('./uploads');
+// Configure session
+app.use(session({
+  secret: 'el-pulse-secret-key-2026',
+  resave: false,
+  saveUninitialized: false
+}));
+
+// Configure file uploads for gallery & event images
+const uploadDir = path.join(__dirname, 'public/uploads');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-// Auto-seed default planner account on startup
-async function seedDefaultUser() {
-  try {
-    const existing = await prisma.user.findUnique({ where: { email: 'springfieldleroy@gmail.com' } });
-    if (!existing) {
-      const passwordHash = await bcrypt.hash('password123', 10);
-      await prisma.user.create({
-        data: {
-          name: 'Leroy Springfield',
-          email: 'springfieldleroy@gmail.com',
-          passwordHash,
-          payfastMerchantId: '10000100',
-          role: 'PLANNER'
-        }
-      });
-      console.log("Default planner account seeded: springfieldleroy@gmail.com");
-    }
-  } catch (err) {
-    console.log("Seed check pending database ready...");
-  }
-}
-
-// Multer storage configuration for banners and photos
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, 'uploads/'),
+  destination: (req, file, cb) => {
+    cb(null, uploadDir);
+  },
   filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, 'media-' + uniqueSuffix + path.extname(file.originalname));
+    cb(null, Date.now() + '-' + file.originalname);
   }
 });
-const upload = multer({ storage });
+const upload = multer({ storage: storage });
 
-const JWT_SECRET = process.env.JWT_SECRET || 'el_pulse_super_secret_key_2026';
+// ==========================================
+// AUTHENTICATION ROUTES
+// ==========================================
 
-// -------------------------------------------------------------
-// NOTIFICATION HELPERS (Email & WhatsApp Tickets)
-// -------------------------------------------------------------
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.ethereal.email',
-  port: process.env.SMTP_PORT || 587,
-  auth: {
-    user: process.env.SMTP_USER || 'test_user',
-    pass: process.env.SMTP_PASS || 'test_pass'
-  }
-});
-
-async function sendTicketEmail(purchaserEmail, purchaserName, eventTitle, quantity, totalAmount, ticketId) {
-  const mailOptions = {
-    from: '"EL Pulse Tickets" <tickets@elpulse.co.za>',
-    to: purchaserEmail,
-    subject: `🎟️ Your Ticket Confirmation for ${eventTitle}`,
-    html: `
-      <div style="font-family: Arial, sans-serif; background-color: #111827; color: #ffffff; padding: 20px; border-radius: 12px; max-width: 600px; margin: 0 auto;">
-        <h1 style="color: #6366f1; text-align: center;">EL Pulse Tickets</h1>
-        <hr style="border-color: #374151;">
-        <h2>Payment Successful!</h2>
-        <p>Hi <strong>${purchaserName || 'Customer'}</strong>,</p>
-        <p>Thank you for your ticket purchase. Here are your ticket details:</p>
-
-        <div style="background-color: #1f2937; padding: 15px; border-radius: 8px; border-left: 4px solid #6366f1; margin: 20px 0;">
-          <h3 style="margin-top: 0; color: #818cf8;">${eventTitle}</h3>
-          <p><strong>Ticket Reference:</strong> #${ticketId}</p>
-          <p><strong>Quantity:</strong> ${quantity} Ticket(s)</p>
-          <p><strong>Total Paid:</strong> R${parseFloat(totalAmount).toFixed(2)}</p>
-        </div>
-
-        <p style="text-align: center; color: #9ca3af; font-size: 12px;">Present this ticket reference at the entrance.</p>
-      </div>
-    `
-  };
-
-  try {
-    await transporter.sendMail(mailOptions);
-  } catch (err) {
-    console.error(`Email dispatch error: ${err.message}`);
-  }
-}
-
-async function sendWhatsAppTicket(purchaserPhone, eventTitle, quantity, ticketId) {
-  if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN) return;
-  
-  try {
-    const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
-    await client.messages.create({
-      from: `whatsapp:${process.env.TWILIO_WHATSAPP_NUMBER || '+14155238886'}`,
-      to: `whatsapp:${purchaserPhone}`,
-      body: `🎟️ *EL Pulse Ticket Confirmed!*\n\nEvent: *${eventTitle}*\nQuantity: ${quantity}\nTicket Ref: #${ticketId}\n\nPresent this message at entry!`
-    });
-  } catch (err) {
-    console.error(`WhatsApp send error: ${err.message}`);
-  }
-}
-
-// Authentication Middleware
-async function authenticatePlanner(req, res, next) {
-  const authHeader = req.headers.authorization;
-  const token = authHeader && authHeader.split(' ')[1];
-  if (!token) return res.status(401).json({ success: false, message: 'Access denied. Please log in again.' });
-
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    const user = await prisma.user.findUnique({ where: { id: decoded.id } });
-    if (!user) {
-      return res.status(401).json({ success: false, message: 'Session expired or user not found. Please log in again.' });
-    }
-
-    req.user = user;
-    next();
-  } catch (err) {
-    res.status(400).json({ success: false, message: 'Invalid token.' });
-  }
-}
-
-// -------------------------------------------------------------
-// AUTH ROUTES (Register & Login)
-// -------------------------------------------------------------
-app.post('/api/auth/register-planner', async (req, res) => {
+// Register route
+app.post('/api/register', async (req, res) => {
   try {
     const { name, email, password, payfastMerchantId } = req.body;
-    if (!name || !email || !password || !payfastMerchantId) {
-      return res.status(400).json({ success: false, message: 'All fields are required.' });
-    }
-
+    
     const existingUser = await prisma.user.findUnique({ where: { email } });
-    if (existingUser) return res.status(400).json({ success: false, message: 'Email address is already registered.' });
+    if (existingUser) {
+      return res.status(400).json({ error: 'Account already exists with this email.' });
+    }
 
     const passwordHash = await bcrypt.hash(password, 10);
     const user = await prisma.user.create({
-      data: { name, email, passwordHash, payfastMerchantId, role: 'PLANNER' }
+      data: {
+        name,
+        email,
+        passwordHash,
+        payfastMerchantId: payfastMerchantId || '10000100', // Default sandbox ID
+        role: 'PLANNER'
+      }
     });
 
-    res.status(201).json({ success: true, message: 'Registered successfully!' });
-  } catch (err) {
-    console.error("Register Error:", err);
-    res.status(500).json({ success: false, message: err.message });
+    req.session.userId = user.id;
+    req.session.userEmail = user.email;
+    res.json({ success: true, message: 'Account created successfully!' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
 
-app.post('/api/auth/login', async (req, res) => {
+// Login route
+app.post('/api/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({ success: false, message: 'Email and password are required.' });
+    const user = await prisma.user.findUnique({ where: { email } });
+    
+    if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
+      return res.status(400).json({ error: 'Invalid email or password.' });
     }
 
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) return res.status(400).json({ success: false, message: 'Invalid email or password.' });
-
-    const validPassword = await bcrypt.compare(password, user.passwordHash);
-    if (!validPassword) return res.status(400).json({ success: false, message: 'Invalid email or password.' });
-
-    const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role, payfastMerchantId: user.payfastMerchantId },
-      JWT_SECRET,
-      { expiresIn: '24h' }
-    );
-
-    res.status(200).json({ success: true, token, user: { name: user.name, role: user.role } });
-  } catch (err) {
-    console.error("Login Error:", err);
-    res.status(500).json({ success: false, message: err.message });
+    req.session.userId = user.id;
+    req.session.userEmail = user.email;
+    res.json({ success: true, message: 'Logged in successfully!' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
 
-// -------------------------------------------------------------
+// Logout route
+app.get('/api/logout', (req, res) => {
+  req.session.destroy(() => {
+    res.redirect('/');
+  });
+});
+
+// Get current session user
+app.get('/api/me', async (req, res) => {
+  if (!req.session.userId) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.session.userId },
+      select: { id: true, name: true, email: true, payfastMerchantId: true, role: true }
+    });
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ==========================================
 // EVENT MANAGEMENT ROUTES
-// -------------------------------------------------------------
+// ==========================================
+
+// Get all events
 app.get('/api/events', async (req, res) => {
   try {
-    const events = await prisma.event.findMany({ orderBy: { createdAt: 'desc' } });
-    res.json({ success: true, events });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
-
-app.get('/api/events/my-events', authenticatePlanner, async (req, res) => {
-  try {
-    const myEvents = await prisma.event.findMany({
-      where: { organizerId: req.user.id },
+    const events = await prisma.event.findMany({
+      include: { organizer: { select: { name: true, email: true } } },
       orderBy: { createdAt: 'desc' }
     });
-    res.json({ success: true, events: myEvents });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    res.json(events);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
 
-app.post('/api/events/create', authenticatePlanner, upload.single('bannerImage'), async (req, res) => {
+// Create event
+app.post('/api/events', upload.single('image'), async (req, res) => {
+  if (!req.session.userId) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
   try {
-    const { title, description, location, eventDate, price, capacity, imageUrl } = req.body;
-    let finalImageUrl = req.file ? `/uploads/${req.file.filename}` : (imageUrl || 'https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=800&q=80');
+    const { title, description, location, date, price, capacity } = req.body;
+    const imageUrl = req.file ? `/uploads/${req.file.filename}` : '/images/default-event.jpg';
+
+    const user = await prisma.user.findUnique({ where: { id: req.session.userId } });
 
     const event = await prisma.event.create({
       data: {
         title,
-        description: description || '',
-        location: location || 'East London',
-        date: eventDate || null,
+        description,
+        location,
+        date,
         price: parseFloat(price),
         capacity: parseInt(capacity),
         available: parseInt(capacity),
-        imageUrl: finalImageUrl,
-        payfastMerchantId: req.user.payfastMerchantId,
-        organizerId: req.user.id
+        imageUrl,
+        payfastMerchantId: user.payfastMerchantId,
+        organizerId: user.id
       }
     });
 
-    res.status(201).json({ success: true, message: 'Event created!', event });
-  } catch (err) {
-    console.error("Event Create Error:", err);
-    res.status(500).json({ success: false, message: err.message });
+    res.json({ success: true, event });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
 
-// -------------------------------------------------------------
-// GALLERY PHOTO ROUTES (Organizers upload, Customers download)
-// -------------------------------------------------------------
+// ==========================================
+// PHOTO GALLERY ROUTES
+// ==========================================
+
+// Get gallery photos
 app.get('/api/gallery', async (req, res) => {
   try {
     const photos = await prisma.photoGallery.findMany({
-      include: { event: true },
-      orderBy: { createdAt: 'desc' } // ordered by date posted (newest first)
+      include: { 
+        organizer: { select: { name: true } },
+        event: { select: { title: true } }
+      },
+      orderBy: { createdAt: 'desc' }
     });
-    res.json({ success: true, photos });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    res.json(photos);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
 
-app.post('/api/gallery/upload', authenticatePlanner, upload.single('photo'), async (req, res) => {
+// Upload gallery photo
+app.post('/api/gallery', upload.single('photo'), async (req, res) => {
+  if (!req.session.userId) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
   try {
     const { title, eventId } = req.body;
     if (!req.file) {
-      return res.status(400).json({ success: false, message: 'Please select a photo to upload.' });
+      return res.status(400).json({ error: 'No image file provided.' });
     }
 
     const photo = await prisma.photoGallery.create({
       data: {
-        title: title || 'Event Photo',
+        title: title || 'EL Pulse Moment',
         imageUrl: `/uploads/${req.file.filename}`,
-        eventId: eventId && eventId !== '' ? eventId : null,
-        organizerId: req.user.id
+        eventId: eventId || null,
+        organizerId: req.session.userId
       }
     });
 
-    res.status(201).json({ success: true, message: 'Photo uploaded to gallery!', photo });
-  } catch (err) {
-    console.error("Gallery Upload Error:", err);
-    res.status(500).json({ success: false, message: err.message });
+    res.json({ success: true, photo });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
 
-// -------------------------------------------------------------
-// DOOR SCANNER TICKET VALIDATION ROUTE
-// -------------------------------------------------------------
-app.post('/api/tickets/verify-scan', authenticatePlanner, async (req, res) => {
+// ==========================================
+// TEMPORARY UTILITY: RESET ACCOUNT ROUTE
+// ==========================================
+app.get('/reset-account', async (req, res) => {
   try {
-    const { ticketRef } = req.body;
-    if (!ticketRef) {
-      return res.status(400).json({ success: false, message: 'No ticket reference provided.' });
-    }
-
-    const ref = ticketRef.trim().toUpperCase();
-
-    if (ref.startsWith('ELP-')) {
-      return res.status(200).json({
-        success: true,
-        valid: true,
-        message: 'TICKET VALID — GRANT ENTRY',
-        ticketDetails: {
-          ticketRef: ref,
-          guestName: 'Verified Attendee',
-          status: 'ADMITTED',
-          scannedAt: new Date().toLocaleTimeString('en-ZA')
-        }
-      });
-    }
-
-    return res.status(400).json({
-      success: false,
-      valid: false,
-      message: 'INVALID OR ALREADY USED TICKET'
+    await prisma.user.deleteMany({
+      where: { email: 'springfieldleroy@gmail.com' }
     });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    res.send('Account cleared successfully! You can now go back to your app, click Register here, and sign up fresh with springfieldleroy@gmail.com.');
+  } catch (error) {
+    res.status(500).send('Error clearing account: ' + error.message);
   }
 });
 
-// -------------------------------------------------------------
-// CHECKOUT & PAYFAST WEBHOOK
-// -------------------------------------------------------------
-app.post('/api/tickets/checkout-split', async (req, res) => {
-  try {
-    const { eventId, quantity, purchaserEmail, purchaserPhone } = req.body;
-    const qty = parseInt(quantity) || 1;
-
-    const event = await prisma.event.findUnique({ 
-      where: { id: eventId },
-      include: { organizer: true }
-    });
-    if (!event) return res.status(404).json({ success: false, message: 'Event not found.' });
-
-    const totalAmount = event.price * qty;
-    const platformFee = totalAmount * 0.05;
-    const organizerAmount = totalAmount - platformFee;
-
-    const payfastData = {
-      merchant_id: process.env.PAYFAST_MERCHANT_ID || '10000100',
-      merchant_key: process.env.PAYFAST_MERCHANT_KEY || '46f0cd694581a',
-      return_url: 'https://el-pulse-app-1.onrender.com/index.html?payment=success',
-      cancel_url: 'https://el-pulse-app-1.onrender.com/index.html?payment=cancelled',
-      notify_url: 'https://el-pulse-app-1.onrender.com/api/tickets/payfast-webhook',
-      name_first: 'Valued',
-      name_last: 'Guest',
-      email_address: purchaserEmail || 'guest@elpulse.co.za',
-      m_payment_id: 'ELP-' + Date.now(),
-      amount: totalAmount.toFixed(2),
-      item_name: `EL Pulse Ticket (${qty}x) - ${event.title}`,
-      custom_str1: purchaserPhone || '',
-      custom_str2: qty.toString()
-    };
-
-    res.json({
-      success: true,
-      checkoutUrl: 'https://sandbox.payfast.co.za/eng/process',
-      payfastData,
-      breakdown: {
-        total: totalAmount.toFixed(2),
-        platformFee5Percent: platformFee.toFixed(2),
-        organizerPayout95Percent: organizerAmount.toFixed(2)
-      }
-    });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
-
-app.post('/api/tickets/payfast-webhook', async (req, res) => {
-  try {
-    const { payment_status, item_name, amount_gross, email_address, custom_str1, custom_str2 } = req.body;
-
-    if (payment_status === 'COMPLETE') {
-      const ticketId = 'ELP-' + Math.floor(100000 + Math.random() * 900000);
-      await sendTicketEmail(email_address, 'Valued Guest', item_name, custom_str2 || '1', amount_gross, ticketId);
-      if (custom_str1) await sendWhatsAppTicket(custom_str1, item_name, custom_str2 || '1', ticketId);
-    }
-    res.status(200).send('OK');
-  } catch (err) {
-    res.status(500).send('Error');
-  }
-});
-
-const PORT = process.env.PORT || 10000;
-app.listen(PORT, async () => {
-  console.log(`EL Pulse Server running on port ${PORT}`);
-  await seedDefaultUser();
+// Start server
+app.listen(PORT, () => {
+  console.log(`EL Pulse server running on port ${PORT}`);
 });
