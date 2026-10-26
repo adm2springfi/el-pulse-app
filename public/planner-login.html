@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <title>EL Pulse - Organizer Login</title>
+</head>
+<body class="bg-gray-900 text-white min-h-screen flex items-center justify-center p-6 font-sans">
+
+  <div class="max-w-md w-full bg-gray-800 p-8 rounded-2xl shadow-2xl border border-gray-700">
+    <div class="flex justify-between items-center mb-6">
+      <h2 class="text-2xl font-bold text-indigo-400">Organizer Login</h2>
+      <a href="/index.html" class="text-xs text-gray-400 hover:text-white">← Home</a>
+    </div>
+
+    <form id="loginForm" class="space-y-4">
+      <div>
+        <label class="block text-sm text-gray-300 mb-1">Email Address</label>
+        <input type="email" id="email" required placeholder="name@company.com" class="w-full bg-gray-700 p-3 rounded-lg border border-gray-600 focus:outline-none focus:border-indigo-500 text-white">
+      </div>
+      <div>
+        <label class="block text-sm text-gray-300 mb-1">Password</label>
+        <input type="password" id="password" required placeholder="••••••••" class="w-full bg-gray-700 p-3 rounded-lg border border-gray-600 focus:outline-none focus:border-indigo-500 text-white">
+      </div>
+
+      <button type="submit" id="submitBtn" class="w-full bg-indigo-600 hover:bg-indigo-500 font-bold py-3.5 rounded-xl text-white transition shadow-lg mt-4">
+        Sign In to Dashboard
+      </button>
+    </form>
+
+    <div id="status" class="mt-4 text-center text-sm font-semibold p-3 rounded-lg hidden"></div>
+
+    <div class="mt-6 border-t border-gray-700 pt-4 text-center">
+      <p class="text-xs text-gray-400">
+        Don't have an organizer account yet? 
+        <a href="/planner-register.html" class="text-indigo-400 hover:underline font-semibold">Register here</a>
+      </p>
+    </div>
+  </div>
+
+  <script>
+    // Redirect if already logged in
+    if (localStorage.getItem('el_pulse_planner_token')) {
+      window.location.href = '/organizer.html';
+    }
+
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const status = document.getElementById('status');
+      const submitBtn = document.getElementById('submitBtn');
+
+      status.classList.remove('hidden');
+      status.innerText = "Authenticating...";
+      status.className = "mt-4 text-center text-sm font-semibold p-3 rounded-lg bg-gray-700 text-gray-300";
+      submitBtn.disabled = true;
+
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+
+        const data = await res.json();
+        submitBtn.disabled = false;
+
+        if (data.success) {
+          // Store session token and user profile details locally
+          localStorage.setItem('el_pulse_planner_token', data.token);
+          localStorage.setItem('el_pulse_user_name', data.user.name);
+          localStorage.setItem('el_pulse_user_role', data.user.role);
+
+          status.innerText = "Login successful! Redirecting to dashboard...";
+          status.className = "mt-4 text-center text-sm font-semibold p-3 rounded-lg bg-green-900/50 text-green-300 border border-green-700";
+
+          setTimeout(() => {
+            // Redirect admins to admin page, planners to organizer portal
+            if (data.user.role === 'ADMIN') {
+              window.location.href = '/admin.html';
+            } else {
+              window.location.href = '/organizer.html';
+            }
+          }, 1200);
+        } else {
+          status.innerText = data.message || "Invalid credentials.";
+          status.className = "mt-4 text-center text-sm font-semibold p-3 rounded-lg bg-red-900/50 text-red-300 border border-red-700";
+        }
+      } catch (err) {
+        submitBtn.disabled = false;
+        status.innerText = "Connection error. Please try again.";
+        status.className = "mt-4 text-center text-sm font-semibold p-3 rounded-lg bg-red-900/50 text-red-300 border border-red-700";
+      }
+    });
+  </script>
+</body>
+</html>
