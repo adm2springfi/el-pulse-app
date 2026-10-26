@@ -24,18 +24,26 @@
       <div id="loginMsg" class="mt-3 text-sm text-center font-semibold"></div>
     </div>
 
-    <!-- Protected Dashboard Controls (Hidden until logged in) -->
+    <!-- Dashboard Controls (Hidden until logged in) -->
     <div id="dashboardSection" class="hidden space-y-8">
       <div class="bg-gray-800 p-6 rounded-xl border border-gray-700">
         <h2 class="text-xl font-bold mb-4 text-indigo-300">Create New Event</h2>
-        <form id="createEventForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        
+        <form id="createEventForm" class="grid grid-cols-1 md:grid-cols-2 gap-4" enctype="multipart/form-data">
           <input type="text" id="eventTitle" placeholder="Event Title" required class="bg-gray-700 p-3 rounded border border-gray-600 col-span-2">
-          <textarea id="eventDesc" placeholder="Description" class="bg-gray-700 p-3 rounded border border-gray-600 col-span-2"></textarea>
+          <textarea id="eventDesc" placeholder="Event Description" class="bg-gray-700 p-3 rounded border border-gray-600 col-span-2"></textarea>
           <input type="text" id="eventLoc" placeholder="Location (e.g. Nahoon Beach)" required class="bg-gray-700 p-3 rounded border border-gray-600">
           <input type="number" id="eventPrice" placeholder="Ticket Price (ZAR)" step="0.01" required class="bg-gray-700 p-3 rounded border border-gray-600">
           <input type="number" id="eventCap" placeholder="Total Ticket Capacity" required class="bg-gray-700 p-3 rounded border border-gray-600">
-          <input type="url" id="eventImg" placeholder="Image URL (Optional)" class="bg-gray-700 p-3 rounded border border-gray-600">
-          <button type="submit" class="col-span-2 bg-green-600 hover:bg-green-500 font-bold py-3 rounded">Publish Event Live</button>
+          
+          <!-- Banner Upload Field -->
+          <div class="col-span-2 bg-gray-900/50 p-4 rounded-xl border border-gray-700 space-y-2">
+            <label class="block text-sm font-semibold text-indigo-300">Upload Event Banner Image (Poster / Flyer)</label>
+            <input type="file" id="bannerImage" accept="image/*" class="w-full text-sm text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-bold file:bg-indigo-600 file:text-white hover:file:bg-indigo-500 cursor-pointer">
+            <p class="text-xs text-gray-400">Supported formats: JPG, PNG, WEBP (Max 5MB)</p>
+          </div>
+
+          <button type="submit" class="col-span-2 bg-green-600 hover:bg-green-500 font-bold py-3.5 rounded-xl transition">Publish Event Live</button>
         </form>
         <div id="createMsg" class="mt-3 text-sm text-center font-semibold"></div>
       </div>
@@ -77,19 +85,33 @@
 
     document.getElementById('createEventForm').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const body = {
-        title: eventTitle.value, description: eventDesc.value, location: eventLoc.value,
-        price: eventPrice.value, capacity: eventCap.value, imageUrl: eventImg.value
-      };
+      const createMsg = document.getElementById('createMsg');
+      createMsg.innerText = "Publishing event...";
+
+      const formData = new FormData();
+      formData.append('title', eventTitle.value);
+      formData.append('description', eventDesc.value);
+      formData.append('location', eventLoc.value);
+      formData.append('price', eventPrice.value);
+      formData.append('capacity', eventCap.value);
+      
+      const fileInput = document.getElementById('bannerImage');
+      if (fileInput.files.length > 0) {
+        formData.append('bannerImage', fileInput.files[0]);
+      }
+
       const res = await fetch('/api/events/create', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify(body)
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData
       });
       const data = await res.json();
       createMsg.innerText = data.message;
       createMsg.className = data.success ? "text-green-400 mt-3 text-sm text-center font-semibold" : "text-red-400 mt-3 text-sm text-center font-semibold";
-      if (data.success) { createEventForm.reset(); loadMyEvents(); }
+      if (data.success) { 
+        createEventForm.reset(); 
+        loadMyEvents(); 
+      }
     });
 
     async function loadMyEvents() {
@@ -101,10 +123,11 @@
         return;
       }
       container.innerHTML = data.events.map(e => `
-        <div class="bg-gray-700 p-4 rounded flex justify-between items-center border border-gray-600">
-          <div>
-            <h3 class="font-bold text-lg">${e.title}</h3>
-            <p class="text-sm text-gray-300">Price: R${e.price} | Capacity: ${e.capacity} | Location: ${e.location}</p>
+        <div class="bg-gray-700 p-4 rounded-xl flex gap-4 items-center border border-gray-600">
+          <img src="${e.imageUrl}" class="w-20 h-20 object-cover rounded-lg bg-gray-800" alt="${e.title}">
+          <div class="flex-1">
+            <h3 class="font-bold text-lg text-white">${e.title}</h3>
+            <p class="text-sm text-gray-300">Price: R${e.price.toFixed(2)} | Capacity: ${e.capacity} | Location: ${e.location}</p>
           </div>
           <span class="text-xs bg-indigo-900 text-indigo-200 px-3 py-1 rounded-full font-bold">Live</span>
         </div>
