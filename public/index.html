@@ -4,105 +4,113 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.tailwindcss.com"></script>
-  <title>EL Pulse - Direct Ticket Purchase</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <title>EL Pulse - East London Live Events & Tickets</title>
 </head>
-<body class="bg-gray-950 text-white font-sans min-h-screen">
+<body class="bg-gray-950 text-white font-sans min-h-screen selection:bg-indigo-500 selection:text-white">
+
+  <!-- Glow Background Accents -->
+  <div class="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-96 bg-gradient-to-tr from-indigo-900/30 via-purple-900/20 to-pink-600/20 blur-3xl pointer-events-none -z-10"></div>
 
   <!-- Navigation Bar -->
-  <nav class="border-b border-gray-800 bg-gray-900/80 backdrop-blur-md fixed w-full top-0 z-50">
+  <nav class="border-b border-gray-800/80 bg-gray-950/80 backdrop-blur-lg fixed w-full top-0 z-50 transition">
     <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-      <a href="/index.html" class="text-xl font-black text-indigo-500 tracking-wider">EL PULSE TICKETS</a>
+      <a href="/index.html" class="flex items-center space-x-2">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-pink-500 flex items-center justify-center font-black text-white shadow-lg shadow-indigo-500/30">
+          <i class="fa-solid fa-bolt text-lg"></i>
+        </div>
+        <span class="text-xl font-black tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-white via-indigo-200 to-indigo-400">
+          EL PULSE <span class="text-indigo-500 font-light text-sm">TICKETS</span>
+        </span>
+      </a>
       
-      <div class="flex items-center space-x-4">
-        <a href="#events" class="text-sm font-medium text-gray-300 hover:text-white transition">Browse Events</a>
-        <a href="/planner-login.html" class="text-sm font-semibold text-gray-300 hover:text-white transition px-3 py-2 rounded-lg hover:bg-gray-800">Sign In</a>
-        <a href="/planner-register.html" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-4 py-2 rounded-lg text-sm transition">Organizer Register</a>
-        <a href="/organizer.html" class="border border-gray-700 hover:border-gray-500 text-gray-300 px-4 py-2 rounded-lg text-sm transition">Dashboard</a>
+      <div class="flex items-center space-x-3 md:space-x-5">
+        <a href="#events-section" class="hidden md:inline-flex text-sm font-medium text-gray-300 hover:text-white transition items-center space-x-1">
+          <i class="fa-regular fa-compass text-indigo-400"></i>
+          <span>Browse</span>
+        </a>
+        <a href="/planner-login.html" class="text-sm font-semibold text-gray-300 hover:text-white transition px-3.5 py-2 rounded-xl hover:bg-gray-800/80 border border-transparent hover:border-gray-700">
+          <i class="fa-solid fa-arrow-right-to-bracket me-1.5 text-indigo-400"></i>Sign In
+        </a>
+        <a href="/planner-register.html" class="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold px-4 py-2 rounded-xl text-sm transition shadow-lg shadow-indigo-600/30 flex items-center space-x-2">
+          <i class="fa-solid fa-plus"></i>
+          <span>Host Event</span>
+        </a>
+        <a href="/organizer.html" class="border border-gray-700 hover:border-gray-500 text-gray-300 px-3.5 py-2 rounded-xl text-sm transition bg-gray-900/50">
+          <i class="fa-solid fa-gauge-high"></i>
+        </a>
       </div>
     </div>
   </nav>
 
   <!-- Hero Section -->
-  <header class="pt-32 pb-20 px-6 text-center max-w-4xl mx-auto">
-    <span class="bg-indigo-900/50 text-indigo-300 text-xs font-semibold px-3 me-2 py-1 rounded-full border border-indigo-700/50">🔥 What's Happening in East London</span>
-    <h1 class="text-5xl md:text-6xl font-black mt-4 mb-6 tracking-tight leading-tight">Discover Live Events in East London</h1>
-    <p class="text-gray-400 text-lg mb-8 max-w-2xl mx-auto">Get direct access to concert tickets, beach festivals, nightlife, and community gatherings.</p>
-    <div class="flex justify-center gap-4">
-      <a href="#events" class="bg-indigo-600 hover:bg-indigo-500 font-bold px-6 py-3 rounded-xl transition">Explore Events</a>
-      <a href="/planner-register.html" class="bg-gray-800 hover:bg-gray-700 font-semibold px-6 py-3 rounded-xl border border-gray-700 transition">Host an Event</a>
+  <header class="pt-36 pb-16 px-6 text-center max-w-5xl mx-auto relative">
+    <div class="inline-flex items-center space-x-2 bg-gradient-to-r from-indigo-900/60 to-purple-900/60 text-indigo-300 text-xs font-semibold px-4 py-1.5 rounded-full border border-indigo-500/40 shadow-inner mb-6 backdrop-blur-md">
+      <span class="flex h-2 w-2 relative">
+        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-pink-400 opacity-75"></span>
+        <span class="relative inline-flex rounded-full h-2 w-2 bg-pink-500"></span>
+      </span>
+      <span>Live in East London & Buffalo City</span>
     </div>
-  </header>
 
-  <!-- Events Container -->
-  <main id="events" class="max-w-7xl mx-auto px-6 pb-24">
-    <h2 class="text-2xl font-bold mb-8 text-indigo-400 border-b border-gray-800 pb-3">Upcoming Events</h2>
-    <div id="eventsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-      <p class="text-gray-500 col-span-full text-center py-12">Loading upcoming events...</p>
+    <h1 class="text-5xl md:text-7xl font-black tracking-tight leading-tight mb-6">
+      Feel The Beat Of <br>
+      <span class="bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-purple-300 to-pink-500">
+        East London Events
+      </span>
+    </h1>
+
+    <p class="text-gray-400 text-lg md:text-xl mb-10 max-w-2xl mx-auto font-normal leading-relaxed">
+      Secure instant entry to beach festivals, nightlife turn-ups, live concerts, and local outdoor experiences.
+    </p>
+
+    <!-- CTAs -->
+    <div class="flex flex-col sm:flex-row justify-center gap-4 max-w-md mx-auto mb-14">
+      <a href="#events-section" class="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:opacity-95 font-bold px-8 py-4 rounded-2xl transition shadow-xl shadow-indigo-500/25 flex items-center justify-center space-x-2 text-base">
+        <i class="fa-solid fa-ticket"></i>
+        <span>Explore Events</span>
+      </a>
+      <a href="/planner-register.html" class="bg-gray-900/90 hover:bg-gray-800 text-white font-semibold px-8 py-4 rounded-2xl border border-gray-700/80 transition flex items-center justify-center space-x-2 text-base">
+        <i class="fa-solid fa-bullhorn text-indigo-400"></i>
+        <span>Create Event</span>
+      </a>
     </div>
-  </main>
 
-  <script>
-    async function loadEvents() {
-      const grid = document.getElementById('eventsGrid');
-      try {
-        const res = await fetch('/api/events');
-        const data = await res.json();
-        
-        if (!data.events || data.events.length === 0) {
-          grid.innerHTML = '<p class="text-gray-400 col-span-full text-center py-12">No events scheduled right now. Check back soon!</p>';
-          return;
-        }
+    <!-- Live Highlights Bar -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 rounded-2xl bg-gray-900/50 border border-gray-800/80 backdrop-blur-md max-w-4xl mx-auto">
+      <div class="flex items-center justify-center space-x-3 p-2">
+        <div class="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center text-lg">
+          <i class="fa-solid fa-qrcode"></i>
+        </div>
+        <div class="text-left">
+          <p class="text-xs font-bold text-gray-200">Instant Tickets</p>
+          <p class="text-[10px] text-gray-400">Email & WhatsApp</p>
+        </div>
+      </div>
 
-        grid.innerHTML = data.events.map(e => `
-          <div class="bg-gray-900 rounded-2xl overflow-hidden border border-gray-800 flex flex-col hover:border-indigo-500/50 transition">
-            <img src="${e.imageUrl}" alt="${e.title}" class="h-48 w-full object-cover">
-            <div class="p-6 flex-1 flex flex-col justify-between">
-              <div>
-                <div class="flex justify-between items-start mb-2">
-                  <h3 class="text-xl font-bold text-white">${e.title}</h3>
-                  <span class="bg-indigo-900/60 text-indigo-300 text-xs px-2.5 py-1 rounded-md border border-indigo-700/40">R${e.price.toFixed(2)}</span>
-                </div>
-                <p class="text-gray-400 text-sm mb-4 line-clamp-2">${e.description || 'No description provided.'}</p>
-                <div class="text-xs text-gray-500 space-y-1 mb-6">
-                  <p>📍 Location: ${e.location}</p>
-                  <p>🎟️ Tickets Left: ${e.available} / ${e.capacity}</p>
-                </div>
-              </div>
-              <button onclick="buyTicket('${e.id}', '${e.title.replace(/'/g, "\\'")}', ${e.price})" class="w-full bg-indigo-600 hover:bg-indigo-500 font-bold py-3 rounded-xl transition">
-                Buy Ticket
-              </button>
-            </div>
-          </div>
-        `).join('');
-      } catch (err) {
-        grid.innerHTML = '<p class="text-red-400 col-span-full text-center py-12">Failed to load events. Please refresh.</p>';
-      }
-    }
+      <div class="flex items-center justify-center space-x-3 p-2">
+        <div class="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center text-lg">
+          <i class="fa-solid fa-shield-halved"></i>
+        </div>
+        <div class="text-left">
+          <p class="text-xs font-bold text-gray-200">Safe Checkout</p>
+          <p class="text-[10px] text-gray-400">PayFast Protected</p>
+        </div>
+      </div>
 
-    async function buyTicket(eventId, title, price) {
-      const email = prompt(`Buy Ticket for "${title}" (R${price.toFixed(2)})\n\nEnter your Email to receive your ticket:`);
-      if (!email || email.trim() === '') return;
-      const phone = prompt("Enter your WhatsApp number (optional, e.g. +27821234567):");
+      <div class="flex items-center justify-center space-x-3 p-2">
+        <div class="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center text-lg">
+          <i class="fa-solid fa-coins"></i>
+        </div>
+        <div class="text-left">
+          <p class="text-xs font-bold text-gray-200">95% To Host</p>
+          <p class="text-[10px] text-gray-400">Split Pay Automation</p>
+        </div>
+      </div>
 
-      try {
-        const res = await fetch('/api/tickets/checkout-split', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ eventId, quantity: 1, purchaserEmail: email.trim(), purchaserPhone: phone ? phone.trim() : '' })
-        });
-        const data = await res.json();
-        if (data.success) {
-          alert(`Redirecting to PayFast payment gateway...\n\nBreakdown:\n- Event Ticket: R${price.toFixed(2)}\n- Platform Commission (5%): R${data.breakdown.platformFee5Percent}\n- Organizer Payout (95%): R${data.breakdown.organizerPayout95Percent}`);
-          window.location.href = data.checkoutUrl;
-        } else {
-          alert(data.message);
-        }
-      } catch (err) {
-        alert("Checkout error: " + err.message);
-      }
-    }
-
-    loadEvents();
-  </script>
-</body>
-</html>
+      <div class="flex items-center justify-center space-x-3 p-2">
+        <div class="w-10 h-10 rounded-xl bg-pink-500/10 text-pink-400 flex items-center justify-center text-lg">
+          <i class="fa-solid fa-location-dot"></i>
+        </div>
+        <div class="text-left">
+          <p class="text-xs font-
