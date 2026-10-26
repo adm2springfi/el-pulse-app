@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <title>EL Pulse - Event Planner Registration</title>
+</head>
+<body class="bg-gray-900 text-white min-h-screen flex items-center justify-center p-6">
+
+  <div class="max-w-md w-full bg-gray-800 p-8 rounded-xl shadow-2xl border border-gray-700">
+    <h2 class="text-2xl font-bold text-indigo-400 text-center mb-6">Organizer Registration</h2>
+    
+    <form id="plannerForm" class="space-y-4">
+      <div>
+        <label class="block text-sm text-gray-300 mb-1">Full Name / Organization</label>
+        <input type="text" id="name" required class="w-full bg-gray-700 p-3 rounded border border-gray-600 focus:outline-none focus:border-indigo-500">
+      </div>
+      <div>
+        <label class="block text-sm text-gray-300 mb-1">Email Address</label>
+        <input type="email" id="email" required class="w-full bg-gray-700 p-3 rounded border border-gray-600 focus:outline-none focus:border-indigo-500">
+      </div>
+      <div>
+        <label class="block text-sm text-gray-300 mb-1">Password</label>
+        <input type="password" id="password" required class="w-full bg-gray-700 p-3 rounded border border-gray-600 focus:outline-none focus:border-indigo-500">
+      </div>
+      <div>
+        <label class="block text-sm text-gray-300 mb-1">PayFast Merchant ID (For Direct Payouts)</label>
+        <input type="text" id="payfastId" placeholder="e.g. 10293847" required class="w-full bg-gray-700 p-3 rounded border border-gray-600 focus:outline-none focus:border-indigo-500">
+        <p class="text-xs text-gray-400 mt-1">95% of every ticket sale will be paid directly into this PayFast account.</p>
+      </div>
+
+      <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 font-bold py-3 rounded text-white transition">Register as Event Planner</button>
+    </form>
+    <div id="status" class="mt-4 text-center text-sm font-semibold"></div>
+  </div>
+
+  <script>
+    document.getElementById('plannerForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const status = document.getElementById('status');
+      status.innerText = "Registering...";
+
+      const body = {
+        name: document.getElementById('name').value,
+        email: document.getElementById('email').value,
+        password: document.getElementById('password').value,
+        payfastMerchantId: document.getElementById('payfastId').value
+      };
+
+      const res = await fetch('/api/auth/register-planner', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+      status.innerText = data.message;
+      status.style.color = data.success ? '#4ADE80' : '#F87171';
+    });
+  </script>
+</body>
+</html>
