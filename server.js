@@ -221,7 +221,7 @@ app.post('/api/events/create', authenticatePlanner, upload.single('bannerImage')
         title,
         description: description || '',
         location: location || 'East London',
-        eventDate: eventDate || null,
+        date: eventDate || null,
         price: parseFloat(price),
         capacity: parseInt(capacity),
         available: parseInt(capacity),
