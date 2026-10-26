@@ -239,32 +239,38 @@ app.post('/api/events/create', authenticatePlanner, upload.single('bannerImage')
 });
 
 // -------------------------------------------------------------
-// CHECKOUT & PAYFAST WEBHOOK
+// CHECKOUT & PAYFAST WEBHOOK (Standard Form Parameters)
 // -------------------------------------------------------------
 app.post('/api/tickets/checkout-split', async (req, res) => {
   try {
-    const { eventId, quantity } = req.body;
+    const { eventId, quantity, purchaserEmail, purchaserPhone } = req.body;
     const qty = parseInt(quantity) || 1;
 
-    const event = await prisma.event.findUnique({ where: { id: eventId } });
+    const event = await prisma.event.findUnique({ 
+      where: { id: eventId },
+      include: { organizer: true }
+    });
     if (!event) return res.status(404).json({ success: false, message: 'Event not found.' });
 
     const totalAmount = event.price * qty;
     const platformFee = totalAmount * 0.05;
     const organizerAmount = totalAmount - platformFee;
 
+    // Standard PayFast Sandbox Integration Fields
     const payfastData = {
       merchant_id: process.env.PAYFAST_MERCHANT_ID || '10000100',
       merchant_key: process.env.PAYFAST_MERCHANT_KEY || '46f0cd694581a',
       return_url: 'https://el-pulse-app-1.onrender.com/index.html?payment=success',
       cancel_url: 'https://el-pulse-app-1.onrender.com/index.html?payment=cancelled',
+      notify_url: 'https://el-pulse-app-1.onrender.com/api/tickets/payfast-webhook',
+      name_first: 'Valued',
+      name_last: 'Guest',
+      email_address: purchaserEmail || 'guest@elpulse.co.za',
+      m_payment_id: 'ELP-' + Date.now(),
       amount: totalAmount.toFixed(2),
       item_name: `EL Pulse Ticket (${qty}x) - ${event.title}`,
-      setup_split: {
-        split_merchant_id: event.payfastMerchantId,
-        split_percentage: 95,
-        amount: totalAmount.toFixed(2)
-      }
+      custom_str1: purchaserPhone || '',
+      custom_str2: qty.toString()
     };
 
     res.json({
