@@ -245,7 +245,7 @@
 
         const data = await res.json();
         if (data.success) {
-          // Dynamically create and submit standard HTML form to PayFast to prevent 400 Bad Request
+          // Immediately submit PayFast form without showing the fee breakdown popup
           const form = document.createElement('form');
           form.method = 'POST';
           form.action = data.checkoutUrl;
