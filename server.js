@@ -23,6 +23,28 @@ if (!fs.existsSync('./uploads')) {
   fs.mkdirSync('./uploads');
 }
 
+// Auto-seed default planner account on startup so it never gets lost on deploy reset
+async function seedDefaultUser() {
+  try {
+    const existing = await prisma.user.findUnique({ where: { email: 'springfieldleroy@gmail.com' } });
+    if (!existing) {
+      const passwordHash = await bcrypt.hash('password123', 10);
+      await prisma.user.create({
+        data: {
+          name: 'Leroy Springfield',
+          email: 'springfieldleroy@gmail.com',
+          passwordHash,
+          payfastMerchantId: '10000100',
+          role: 'PLANNER'
+        }
+      });
+      console.log("Default planner account seeded: springfieldleroy@gmail.com");
+    }
+  } catch (err) {
+    console.log("Seed check pending database ready...");
+  }
+}
+
 // Multer storage configuration for banners
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, 'uploads/'),
@@ -102,8 +124,6 @@ async function authenticatePlanner(req, res, next) {
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    
-    // Verify user actually exists in database
     const user = await prisma.user.findUnique({ where: { id: decoded.id } });
     if (!user) {
       return res.status(401).json({ success: false, message: 'Session expired or user not found. Please log in again.' });
@@ -278,4 +298,7 @@ app.post('/api/tickets/payfast-webhook', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => console.log(`EL Pulse Server running on port ${PORT}`));
+app.listen(PORT, async () => {
+  console.log(`EL Pulse Server running on port ${PORT}`);
+  await seedDefaultUser();
+});

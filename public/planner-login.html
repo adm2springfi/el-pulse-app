@@ -17,11 +17,11 @@
     <form id="loginForm" class="space-y-4">
       <div>
         <label class="block text-sm text-gray-300 mb-1">Email Address</label>
-        <input type="email" id="email" required placeholder="planner@example.com" class="w-full bg-gray-700 p-3 rounded-lg border border-gray-600 focus:outline-none focus:border-indigo-500 text-white">
+        <input type="email" id="email" value="springfieldleroy@gmail.com" required class="w-full bg-gray-700 p-3 rounded-lg border border-gray-600 focus:outline-none focus:border-indigo-500 text-white">
       </div>
       <div>
         <label class="block text-sm text-gray-300 mb-1">Password</label>
-        <input type="password" id="password" required placeholder="••••••••" class="w-full bg-gray-700 p-3 rounded-lg border border-gray-600 focus:outline-none focus:border-indigo-500 text-white">
+        <input type="password" id="password" value="password123" required class="w-full bg-gray-700 p-3 rounded-lg border border-gray-600 focus:outline-none focus:border-indigo-500 text-white">
       </div>
 
       <button type="submit" id="submitBtn" class="w-full bg-indigo-600 hover:bg-indigo-500 font-bold py-3.5 rounded-xl text-white transition shadow-lg mt-4">
@@ -76,11 +76,7 @@
           status.className = "mt-4 text-center text-sm font-semibold p-3 rounded-lg bg-green-900/50 text-green-300 border border-green-700";
 
           setTimeout(() => {
-            if (data.user.role === 'ADMIN') {
-              window.location.href = '/admin.html';
-            } else {
-              window.location.href = '/organizer.html';
-            }
+            window.location.href = '/organizer.html';
           }, 1000);
         } else {
           status.innerText = data.message || "Invalid email or password.";
