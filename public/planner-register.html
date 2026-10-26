@@ -4,12 +4,17 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google reCAPTCHA API Script -->
+  <script src="https://www.google.com/recaptcha/api.js" async defer></script>
   <title>EL Pulse - Event Planner Registration</title>
 </head>
 <body class="bg-gray-900 text-white min-h-screen flex items-center justify-center p-6">
 
   <div class="max-w-md w-full bg-gray-800 p-8 rounded-xl shadow-2xl border border-gray-700">
-    <h2 class="text-2xl font-bold text-indigo-400 text-center mb-6">Organizer Registration</h2>
+    <div class="flex justify-between items-center mb-6">
+      <h2 class="text-2xl font-bold text-indigo-400">Organizer Registration</h2>
+      <a href="/index.html" class="text-xs text-gray-400 hover:text-white">← Home</a>
+    </div>
     
     <form id="plannerForm" class="space-y-4">
       <div>
@@ -27,10 +32,16 @@
       <div>
         <label class="block text-sm text-gray-300 mb-1">PayFast Merchant ID (For Direct Payouts)</label>
         <input type="text" id="payfastId" placeholder="e.g. 10293847" required class="w-full bg-gray-700 p-3 rounded border border-gray-600 focus:outline-none focus:border-indigo-500">
-        <p class="text-xs text-gray-400 mt-1">95% of every ticket sale will be paid directly into this PayFast account.</p>
+        <p class="text-xs text-gray-400 mt-1">95% of every ticket sale is paid directly into this account.</p>
       </div>
 
-      <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 font-bold py-3 rounded text-white transition">Register as Event Planner</button>
+      <!-- Google reCAPTCHA Widget -->
+      <div class="py-2 flex justify-center">
+        <div class="g-recaptcha" data-sitekey="6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI" data-theme="dark"></div>
+      </div>
+      <p class="text-xs text-gray-500 text-center">Protected by Google reCAPTCHA</p>
+
+      <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 font-bold py-3 rounded text-white transition shadow-lg">Register as Event Planner</button>
     </form>
     <div id="status" class="mt-4 text-center text-sm font-semibold"></div>
   </div>
@@ -39,23 +50,48 @@
     document.getElementById('plannerForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const status = document.getElementById('status');
+      
+      // Verify reCAPTCHA is checked
+      const recaptchaResponse = grecaptcha.getResponse();
+      if (!recaptchaResponse) {
+        status.innerText = "Please complete the reCAPTCHA box.";
+        status.style.color = '#F87171';
+        return;
+      }
+
       status.innerText = "Registering...";
+      status.style.color = '#9CA3AF';
 
       const body = {
         name: document.getElementById('name').value,
         email: document.getElementById('email').value,
         password: document.getElementById('password').value,
-        payfastMerchantId: document.getElementById('payfastId').value
+        payfastMerchantId: document.getElementById('payfastId').value,
+        recaptchaToken: recaptchaResponse
       };
 
-      const res = await fetch('/api/auth/register-planner', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      });
-      const data = await res.json();
-      status.innerText = data.message;
-      status.style.color = data.success ? '#4ADE80' : '#F87171';
+      try {
+        const res = await fetch('/api/auth/register-planner', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        status.innerText = data.message;
+        status.style.color = data.success ? '#4ADE80' : '#F87171';
+        
+        if (data.success) {
+          setTimeout(() => {
+            window.location.href = '/organizer.html';
+          }, 1500);
+        } else {
+          grecaptcha.reset(); // Reset captcha on failure
+        }
+      } catch (err) {
+        status.innerText = "Registration error. Please try again.";
+        status.style.color = '#F87171';
+        grecaptcha.reset();
+      }
     });
   </script>
 </body>
