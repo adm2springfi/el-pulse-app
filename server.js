@@ -95,14 +95,21 @@ async function sendWhatsAppTicket(purchaserPhone, eventTitle, quantity, ticketId
 }
 
 // Authentication Middleware
-function authenticatePlanner(req, res, next) {
+async function authenticatePlanner(req, res, next) {
   const authHeader = req.headers.authorization;
   const token = authHeader && authHeader.split(' ')[1];
-  if (!token) return res.status(401).json({ success: false, message: 'Access denied.' });
+  if (!token) return res.status(401).json({ success: false, message: 'Access denied. Please log in again.' });
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    req.user = decoded;
+    
+    // Verify user actually exists in database to prevent foreign key errors
+    const user = await prisma.user.findUnique({ where: { id: decoded.id } });
+    if (!user) {
+      return res.status(401).json({ success: false, message: 'Session expired or user not found. Please log in again.' });
+    }
+
+    req.user = user;
     next();
   } catch (err) {
     res.status(400).json({ success: false, message: 'Invalid token.' });
@@ -205,6 +212,7 @@ app.post('/api/events/create', authenticatePlanner, upload.single('bannerImage')
 
     res.status(201).json({ success: true, message: 'Event created!', event });
   } catch (err) {
+    console.error("Event Create Error:", err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
