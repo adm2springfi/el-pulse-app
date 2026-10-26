@@ -103,7 +103,7 @@ async function authenticatePlanner(req, res, next) {
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
     
-    // Verify user actually exists in database to prevent foreign key errors
+    // Verify user actually exists in database
     const user = await prisma.user.findUnique({ where: { id: decoded.id } });
     if (!user) {
       return res.status(401).json({ success: false, message: 'Session expired or user not found. Please log in again.' });
@@ -193,7 +193,7 @@ app.get('/api/events/my-events', authenticatePlanner, async (req, res) => {
 
 app.post('/api/events/create', authenticatePlanner, upload.single('bannerImage'), async (req, res) => {
   try {
-    const { title, description, location, price, capacity, imageUrl } = req.body;
+    const { title, description, location, eventDate, price, capacity, imageUrl } = req.body;
     let finalImageUrl = req.file ? `/uploads/${req.file.filename}` : (imageUrl || 'https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=800&q=80');
 
     const event = await prisma.event.create({
@@ -201,6 +201,7 @@ app.post('/api/events/create', authenticatePlanner, upload.single('bannerImage')
         title,
         description: description || '',
         location: location || 'East London',
+        eventDate: eventDate || null,
         price: parseFloat(price),
         capacity: parseInt(capacity),
         available: parseInt(capacity),

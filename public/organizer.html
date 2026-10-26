@@ -57,20 +57,24 @@
           </div>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div>
+            <label class="block text-sm text-gray-300 mb-1">Event Date & Time</label>
+            <input type="datetime-local" id="eventDate" required class="w-full bg-gray-800 p-3 rounded-xl border border-gray-700 focus:outline-none focus:border-indigo-500 text-white">
+          </div>
           <div>
             <label class="block text-sm text-gray-300 mb-1">Ticket Price (ZAR - R)</label>
             <input type="number" id="price" step="0.01" required placeholder="150.00" class="w-full bg-gray-800 p-3 rounded-xl border border-gray-700 focus:outline-none focus:border-indigo-500 text-white">
           </div>
           <div>
-            <label class="block text-sm text-gray-300 mb-1">Total Capacity / Tickets Available</label>
+            <label class="block text-sm text-gray-300 mb-1">Total Capacity</label>
             <input type="number" id="capacity" required placeholder="250" class="w-full bg-gray-800 p-3 rounded-xl border border-gray-700 focus:outline-none focus:border-indigo-500 text-white">
           </div>
         </div>
 
         <div>
           <label class="block text-sm text-gray-300 mb-1">Event Description</label>
-          <textarea id="description" rows="3" placeholder="Describe the lineup, time, and activities..." class="w-full bg-gray-800 p-3 rounded-xl border border-gray-700 focus:outline-none focus:border-indigo-500 text-white"></textarea>
+          <textarea id="description" rows="3" placeholder="Describe the lineup, schedule, and activities..." class="w-full bg-gray-800 p-3 rounded-xl border border-gray-700 focus:outline-none focus:border-indigo-500 text-white"></textarea>
         </div>
 
         <div>
@@ -128,24 +132,28 @@
           return;
         }
 
-        grid.innerHTML = data.events.map(e => `
-          <div class="bg-gray-900 rounded-2xl overflow-hidden border border-gray-800 flex flex-col">
-            <img src="${e.imageUrl}" alt="${e.title}" class="h-40 w-full object-cover">
-            <div class="p-5 flex-1 flex flex-col justify-between">
-              <div>
-                <div class="flex justify-between items-start mb-2">
-                  <h3 class="text-lg font-bold text-white">${e.title}</h3>
-                  <span class="bg-indigo-900/60 text-indigo-300 text-xs px-2.5 py-1 rounded-md border border-indigo-700/40">R${e.price.toFixed(2)}</span>
-                </div>
-                <p class="text-gray-400 text-xs mb-3 line-clamp-2">${e.description || 'No description.'}</p>
-                <div class="text-xs text-gray-500 space-y-1">
-                  <p>📍 ${e.location}</p>
-                  <p>🎟️ Tickets Available: ${e.available} / ${e.capacity}</p>
+        grid.innerHTML = data.events.map(e => {
+          const dateStr = e.eventDate ? new Date(e.eventDate).toLocaleString('en-ZA', { dateStyle: 'medium', timeStyle: 'short' }) : 'TBA';
+          return `
+            <div class="bg-gray-900 rounded-2xl overflow-hidden border border-gray-800 flex flex-col">
+              <img src="${e.imageUrl}" alt="${e.title}" class="h-40 w-full object-cover">
+              <div class="p-5 flex-1 flex flex-col justify-between">
+                <div>
+                  <div class="flex justify-between items-start mb-2">
+                    <h3 class="text-lg font-bold text-white">${e.title}</h3>
+                    <span class="bg-indigo-900/60 text-indigo-300 text-xs px-2.5 py-1 rounded-md border border-indigo-700/40">R${e.price.toFixed(2)}</span>
+                  </div>
+                  <p class="text-gray-400 text-xs mb-3 line-clamp-2">${e.description || 'No description.'}</p>
+                  <div class="text-xs text-gray-400 space-y-1">
+                    <p>📅 <strong class="text-indigo-300">${dateStr}</strong></p>
+                    <p>📍 ${e.location}</p>
+                    <p>🎟️ Tickets Available: ${e.available} / ${e.capacity}</p>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        `).join('');
+          `;
+        }).join('');
       } catch (err) {
         grid.innerHTML = '<p class="text-red-400 col-span-full text-center py-8">Failed to load your events.</p>';
       }
@@ -164,6 +172,7 @@
       const formData = new FormData();
       formData.append('title', document.getElementById('title').value.trim());
       formData.append('location', document.getElementById('location').value.trim());
+      formData.append('eventDate', document.getElementById('eventDate').value);
       formData.append('price', document.getElementById('price').value);
       formData.append('capacity', document.getElementById('capacity').value);
       formData.append('description', document.getElementById('description').value.trim());
