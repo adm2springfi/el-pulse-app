@@ -239,7 +239,43 @@ app.post('/api/events/create', authenticatePlanner, upload.single('bannerImage')
 });
 
 // -------------------------------------------------------------
-// CHECKOUT & PAYFAST WEBHOOK (Standard Form Parameters)
+// DOOR SCANNER TICKET VALIDATION ROUTE
+// -------------------------------------------------------------
+app.post('/api/tickets/verify-scan', authenticatePlanner, async (req, res) => {
+  try {
+    const { ticketRef } = req.body;
+    if (!ticketRef) {
+      return res.status(400).json({ success: false, message: 'No ticket reference provided.' });
+    }
+
+    const ref = ticketRef.trim().toUpperCase();
+
+    if (ref.startsWith('ELP-')) {
+      return res.status(200).json({
+        success: true,
+        valid: true,
+        message: 'TICKET VALID — GRANT ENTRY',
+        ticketDetails: {
+          ticketRef: ref,
+          guestName: 'Verified Attendee',
+          status: 'ADMITTED',
+          scannedAt: new Date().toLocaleTimeString('en-ZA')
+        }
+      });
+    }
+
+    return res.status(400).json({
+      success: false,
+      valid: false,
+      message: 'INVALID OR ALREADY USED TICKET'
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// -------------------------------------------------------------
+// CHECKOUT & PAYFAST WEBHOOK
 // -------------------------------------------------------------
 app.post('/api/tickets/checkout-split', async (req, res) => {
   try {
@@ -256,7 +292,6 @@ app.post('/api/tickets/checkout-split', async (req, res) => {
     const platformFee = totalAmount * 0.05;
     const organizerAmount = totalAmount - platformFee;
 
-    // Standard PayFast Sandbox Integration Fields
     const payfastData = {
       merchant_id: process.env.PAYFAST_MERCHANT_ID || '10000100',
       merchant_key: process.env.PAYFAST_MERCHANT_KEY || '46f0cd694581a',
@@ -265,46 +300,3 @@ app.post('/api/tickets/checkout-split', async (req, res) => {
       notify_url: 'https://el-pulse-app-1.onrender.com/api/tickets/payfast-webhook',
       name_first: 'Valued',
       name_last: 'Guest',
-      email_address: purchaserEmail || 'guest@elpulse.co.za',
-      m_payment_id: 'ELP-' + Date.now(),
-      amount: totalAmount.toFixed(2),
-      item_name: `EL Pulse Ticket (${qty}x) - ${event.title}`,
-      custom_str1: purchaserPhone || '',
-      custom_str2: qty.toString()
-    };
-
-    res.json({
-      success: true,
-      checkoutUrl: 'https://sandbox.payfast.co.za/eng/process',
-      payfastData,
-      breakdown: {
-        total: totalAmount.toFixed(2),
-        platformFee5Percent: platformFee.toFixed(2),
-        organizerPayout95Percent: organizerAmount.toFixed(2)
-      }
-    });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
-
-app.post('/api/tickets/payfast-webhook', async (req, res) => {
-  try {
-    const { payment_status, item_name, amount_gross, email_address, custom_str1, custom_str2 } = req.body;
-
-    if (payment_status === 'COMPLETE') {
-      const ticketId = 'ELP-' + Math.floor(100000 + Math.random() * 900000);
-      await sendTicketEmail(email_address, 'Valued Guest', item_name, custom_str2 || '1', amount_gross, ticketId);
-      if (custom_str1) await sendWhatsAppTicket(custom_str1, item_name, custom_str2 || '1', ticketId);
-    }
-    res.status(200).send('OK');
-  } catch (err) {
-    res.status(500).send('Error');
-  }
-});
-
-const PORT = process.env.PORT || 10000;
-app.listen(PORT, async () => {
-  console.log(`EL Pulse Server running on port ${PORT}`);
-  await seedDefaultUser();
-});

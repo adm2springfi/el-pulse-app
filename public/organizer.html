@@ -25,21 +25,24 @@
   </nav>
 
   <!-- Main Content -->
-  <main class="max-w-5xl mx-auto px-6 pt-32 pb-24">
+  <main class="max-w-5xl mx-auto px-6 pt-32 pb-24 space-y-8">
     
-    <!-- Welcome Header -->
-    <div class="mb-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gray-900 p-6 rounded-2xl border border-gray-800">
+    <!-- Welcome Header & Scanner Shortcut -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gray-900 p-6 rounded-2xl border border-gray-800">
       <div>
         <h1 class="text-3xl font-black text-white" id="welcomeUser">Welcome, Organizer</h1>
         <p class="text-gray-400 text-sm mt-1">Manage your upcoming live events and track ticket sales.</p>
       </div>
-      <div class="bg-indigo-950 border border-indigo-800/60 px-4 py-2 rounded-xl text-xs text-indigo-300 font-semibold">
-        95% Direct Payout Enabled
+      <div class="flex flex-col sm:flex-row items-center gap-3">
+        <a href="/scanner.html" class="inline-flex items-center space-x-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold px-5 py-3 rounded-xl text-sm transition shadow-lg shadow-emerald-600/20">
+          <i class="fa-solid fa-qrcode text-lg"></i>
+          <span>Open Door Scanner App</span>
+        </a>
       </div>
     </div>
 
     <!-- Create Event Form -->
-    <div class="bg-gray-900 p-8 rounded-2xl shadow-xl border border-gray-800 mb-12">
+    <div class="bg-gray-900 p-8 rounded-2xl shadow-xl border border-gray-800">
       <h2 class="text-xl font-bold mb-6 text-indigo-400 flex items-center space-x-2">
         <i class="fa-solid fa-circle-plus"></i>
         <span>Publish New Event</span>
@@ -57,7 +60,6 @@
           </div>
         </div>
 
-        <!-- Date & Time with Apply Button -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
           <div>
             <label class="block text-sm text-gray-300 mb-1">Event Date & Time</label>
@@ -150,7 +152,7 @@
         }
 
         grid.innerHTML = data.events.map(e => {
-          const dateStr = e.eventDate ? new Date(e.eventDate).toLocaleString('en-ZA', { dateStyle: 'medium', timeStyle: 'short' }) : 'TBA';
+          const dateStr = e.date ? new Date(e.date).toLocaleString('en-ZA', { dateStyle: 'medium', timeStyle: 'short' }) : 'TBA';
           return `
             <div class="bg-gray-900 rounded-2xl overflow-hidden border border-gray-800 flex flex-col">
               <img src="${e.imageUrl}" alt="${e.title}" class="h-40 w-full object-cover">
