@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "npx prisma generate && npx prisma db push --accept-data-loss",
+    "build": "npm install && npx prisma generate && npx prisma db push --accept-data-loss",
     "postinstall": "npx prisma generate && npx prisma db push --accept-data-loss"
   },
   "keywords": [],
