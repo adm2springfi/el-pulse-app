@@ -13,7 +13,7 @@ const prisma = new PrismaClient();
 const app = express();
 
 app.use(express.json());
-app.use(express.urlencoded({ extended: true })); // Handle PayFast form POSTs
+app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
 app.use('/uploads', express.static('uploads'));
 
@@ -35,10 +35,8 @@ const upload = multer({ storage });
 const JWT_SECRET = process.env.JWT_SECRET || 'el_pulse_super_secret_key_2026';
 
 // -------------------------------------------------------------
-// NOTIFICATION HELPERS (Email & WhatsApp)
+// NOTIFICATION HELPERS (Email & WhatsApp Tickets)
 // -------------------------------------------------------------
-
-// Transporter using environment variables or fallback test Ethereal account
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'smtp.ethereal.email',
   port: process.env.SMTP_PORT || 587,
@@ -48,7 +46,6 @@ const transporter = nodemailer.createTransport({
   }
 });
 
-// Helper function to send email ticket
 async function sendTicketEmail(purchaserEmail, purchaserName, eventTitle, quantity, totalAmount, ticketId) {
   const mailOptions = {
     from: '"EL Pulse Tickets" <tickets@elpulse.co.za>',
@@ -59,8 +56,8 @@ async function sendTicketEmail(purchaserEmail, purchaserName, eventTitle, quanti
         <h1 style="color: #6366f1; text-align: center;">EL Pulse Tickets</h1>
         <hr style="border-color: #374151;">
         <h2>Payment Successful!</h2>
-        <p>Hi <strong>${purchaserName || 'Event Goer'}</strong>,</p>
-        <p>Thank you for your purchase. Here is your official event ticket:</p>
+        <p>Hi <strong>${purchaserName || 'Customer'}</strong>,</p>
+        <p>Thank you for your ticket purchase. Here are your ticket details:</p>
 
         <div style="background-color: #1f2937; padding: 15px; border-radius: 8px; border-left: 4px solid #6366f1; margin: 20px 0;">
           <h3 style="margin-top: 0; color: #818cf8;">${eventTitle}</h3>
@@ -69,56 +66,69 @@ async function sendTicketEmail(purchaserEmail, purchaserName, eventTitle, quanti
           <p><strong>Total Paid:</strong> R${parseFloat(totalAmount).toFixed(2)}</p>
         </div>
 
-        <p style="text-align: center; color: #9ca3af; font-size: 12px;">Present this reference or QR code at the venue entry.</p>
+        <p style="text-align: center; color: #9ca3af; font-size: 12px;">Present this ticket reference at the entrance.</p>
       </div>
     `
   };
 
   try {
     await transporter.sendMail(mailOptions);
-    console.log(`Ticket email dispatched successfully to ${purchaserEmail}`);
+    console.log(`Ticket email sent to ${purchaserEmail}`);
   } catch (err) {
-    console.error(`Failed to dispatch email ticket: ${err.message}`);
+    console.error(`Email dispatch error: ${err.message}`);
   }
 }
 
-// Helper function to dispatch WhatsApp message via Twilio (Optional API)
 async function sendWhatsAppTicket(purchaserPhone, eventTitle, quantity, ticketId) {
-  if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN) {
-    console.log(`[Twilio Not Configured] Skipping WhatsApp message to ${purchaserPhone}`);
-    return;
-  }
+  if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN) return;
   
   try {
     const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
     await client.messages.create({
       from: `whatsapp:${process.env.TWILIO_WHATSAPP_NUMBER || '+14155238886'}`,
       to: `whatsapp:${purchaserPhone}`,
-      body: `🎟️ *EL Pulse Ticket Confirmed!*\n\nEvent: *${eventTitle}*\nTickets: ${quantity}\nRef #: ${ticketId}\n\nPresent this message at the door for entry!`
+      body: `🎟️ *EL Pulse Ticket Confirmed!*\n\nEvent: *${eventTitle}*\nQuantity: ${quantity}\nTicket Ref: #${ticketId}\n\nPresent this message at entry!`
     });
-    console.log(`WhatsApp ticket sent to ${purchaserPhone}`);
   } catch (err) {
-    console.error(`Failed to send WhatsApp message: ${err.message}`);
+    console.error(`WhatsApp send error: ${err.message}`);
+  }
+}
+
+// Middleware
+function authenticatePlanner(req, res, next) {
+  const authHeader = req.headers.authorization;
+  const token = authHeader && authHeader.split(' ')[1];
+  if (!token) return res.status(401).json({ success: false, message: 'Access denied.' });
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch (err) {
+    res.status(400).json({ success: false, message: 'Invalid token.' });
   }
 }
 
 // -------------------------------------------------------------
-// AUTH & EVENT ROUTES
+// AUTH ROUTES (Register & Login)
 // -------------------------------------------------------------
+
 app.post('/api/auth/register-planner', async (req, res) => {
   try {
     const { name, email, password, payfastMerchantId, recaptchaToken } = req.body;
     if (!name || !email || !password || !payfastMerchantId) {
       return res.status(400).json({ success: false, message: 'All fields are required.' });
     }
+
     const existingUser = await prisma.user.findUnique({ where: { email } });
-    if (existingUser) return res.status(400).json({ success: false, message: 'Email already registered.' });
+    if (existingUser) return res.status(400).json({ success: false, message: 'Email address is already registered.' });
 
     const passwordHash = await bcrypt.hash(password, 10);
     const user = await prisma.user.create({
       data: { name, email, passwordHash, payfastMerchantId, role: 'PLANNER' }
     });
-    res.status(201).json({ success: true, message: 'Account registered successfully!' });
+
+    res.status(201).json({ success: true, message: 'Registered successfully!' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -128,22 +138,26 @@ app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
     const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) return res.status(400).json({ success: false, message: 'Invalid credentials.' });
+    if (!user) return res.status(400).json({ success: false, message: 'Invalid email or password.' });
 
     const validPassword = await bcrypt.compare(password, user.passwordHash);
-    if (!validPassword) return res.status(400).json({ success: false, message: 'Invalid credentials.' });
+    if (!validPassword) return res.status(400).json({ success: false, message: 'Invalid email or password.' });
 
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role, payfastMerchantId: user.payfastMerchantId },
       JWT_SECRET,
       { expiresIn: '24h' }
     );
+
     res.status(200).json({ success: true, token, user: { name: user.name, role: user.role } });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 });
 
+// -------------------------------------------------------------
+// EVENT ROUTES
+// -------------------------------------------------------------
 app.get('/api/events', async (req, res) => {
   try {
     const events = await prisma.event.findMany({ orderBy: { createdAt: 'desc' } });
@@ -153,53 +167,58 @@ app.get('/api/events', async (req, res) => {
   }
 });
 
-// -------------------------------------------------------------
-// PAYFAST WEBHOOK / PAYMENT SUCCESS CALLBACK
-// -------------------------------------------------------------
-app.post('/api/tickets/payfast-webhook', async (req, res) => {
+app.get('/api/events/my-events', authenticatePlanner, async (req, res) => {
   try {
-    // PayFast posts ITN (Instant Transaction Notification) data here
-    const { payment_status, item_name, amount_gross, email_address, custom_str1, custom_str2 } = req.body;
-
-    if (payment_status === 'COMPLETE') {
-      const purchaserEmail = email_address;
-      const purchaserPhone = custom_str1; // Passed phone number
-      const eventTitle = item_name;
-      const quantity = custom_str2 || '1';
-      const ticketId = 'ELP-' + Math.floor(100000 + Math.random() * 900000);
-
-      // Trigger automated delivery
-      await sendTicketEmail(purchaserEmail, 'Customer', eventTitle, quantity, amount_gross, ticketId);
-      
-      if (purchaserPhone) {
-        await sendWhatsAppTicket(purchaserPhone, eventTitle, quantity, ticketId);
-      }
-    }
-
-    res.status(200).send('OK');
+    const myEvents = await prisma.event.findMany({
+      where: { organizerId: req.user.id },
+      orderBy: { createdAt: 'desc' }
+    });
+    res.json({ success: true, events: myEvents });
   } catch (err) {
-    console.error("ITN Error:", err);
-    res.status(500).send('Error');
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 
-// Direct test purchase endpoint (for testing without live PayFast callback)
-app.post('/api/tickets/confirm-test-purchase', async (req, res) => {
+app.post('/api/events/create', authenticatePlanner, upload.single('bannerImage'), async (req, res) => {
   try {
-    const { purchaserEmail, purchaserName, purchaserPhone, eventTitle, quantity, totalAmount } = req.body;
-    const ticketId = 'ELP-' + Math.floor(100000 + Math.random() * 900000);
+    const { title, description, location, price, capacity, imageUrl } = req.body;
+    let finalImageUrl = req.file ? `/uploads/${req.file.filename}` : (imageUrl || 'https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=800&q=80');
 
-    // Send Email
-    await sendTicketEmail(purchaserEmail, purchaserName, eventTitle, quantity, totalAmount, ticketId);
+    const event = await prisma.event.create({
+      data: {
+        title,
+        description: description || '',
+        location: location || 'East London',
+        price: parseFloat(price),
+        capacity: parseInt(capacity),
+        available: parseInt(capacity),
+        imageUrl: finalImageUrl,
+        payfastMerchantId: req.user.payfastMerchantId,
+        organizerId: req.user.id
+      }
+    });
 
-    // Send WhatsApp if phone provided
-    if (purchaserPhone) {
-      await sendWhatsAppTicket(purchaserPhone, eventTitle, quantity, ticketId);
-    }
-
-    res.json({ success: true, message: 'Payment confirmed & ticket delivered via Email/WhatsApp!', ticketId });
+    res.status(201).json({ success: true, message: 'Event created!', event });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// -------------------------------------------------------------
+// WEBHOOK & TICKET DISPATCH
+// -------------------------------------------------------------
+app.post('/api/tickets/payfast-webhook', async (req, res) => {
+  try {
+    const { payment_status, item_name, amount_gross, email_address, custom_str1, custom_str2 } = req.body;
+
+    if (payment_status === 'COMPLETE') {
+      const ticketId = 'ELP-' + Math.floor(100000 + Math.random() * 900000);
+      await sendTicketEmail(email_address, 'Valued Guest', item_name, custom_str2 || '1', amount_gross, ticketId);
+      if (custom_str1) await sendWhatsAppTicket(custom_str1, item_name, custom_str2 || '1', ticketId);
+    }
+    res.status(200).send('OK');
+  } catch (err) {
+    res.status(500).send('Error');
   }
 });
 
