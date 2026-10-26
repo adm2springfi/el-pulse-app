@@ -12,7 +12,7 @@ const app = express();
 
 app.use(express.json());
 app.use(express.static('public'));
-app.use('/uploads', express.static('uploads')); // Serve uploaded event banners publicly
+app.use('/uploads', express.static('uploads'));
 
 // Ensure 'uploads' directory exists
 if (!fs.existsSync('./uploads')) {
@@ -46,6 +46,7 @@ const upload = multer({
 
 const JWT_SECRET = process.env.JWT_SECRET || 'el_pulse_super_secret_key_2026';
 
+// Middleware for Event Planners & Admin
 function authenticatePlanner(req, res, next) {
   const authHeader = req.headers.authorization;
   const token = authHeader && authHeader.split(' ')[1];
@@ -53,8 +54,26 @@ function authenticatePlanner(req, res, next) {
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    if (decoded.role !== 'PLANNER') {
-      return res.status(403).json({ success: false, message: 'Only registered Event Planners can perform this action.' });
+    if (decoded.role !== 'PLANNER' && decoded.role !== 'ADMIN') {
+      return res.status(403).json({ success: false, message: 'Permission denied.' });
+    }
+    req.user = decoded;
+    next();
+  } catch (err) {
+    res.status(400).json({ success: false, message: 'Invalid or expired session token.' });
+  }
+}
+
+// Middleware for Super Admin
+function authenticateAdmin(req, res, next) {
+  const authHeader = req.headers.authorization;
+  const token = authHeader && authHeader.split(' ')[1];
+  if (!token) return res.status(401).json({ success: false, message: 'Access denied. Admin token required.' });
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    if (decoded.role !== 'ADMIN') {
+      return res.status(403).json({ success: false, message: 'Access denied. Super Admin role required.' });
     }
     req.user = decoded;
     next();
@@ -66,35 +85,58 @@ function authenticatePlanner(req, res, next) {
 // -------------------------------------------------------------
 // AUTH ROUTES
 // -------------------------------------------------------------
+
+// Organizer Registration (With reCAPTCHA & Robust Error Logging)
 app.post('/api/auth/register-planner', async (req, res) => {
   try {
-    const { name, email, password, payfastMerchantId } = req.body;
+    const { name, email, password, payfastMerchantId, recaptchaToken } = req.body;
+
     if (!name || !email || !password || !payfastMerchantId) {
       return res.status(400).json({ success: false, message: 'All fields are required.' });
     }
 
+    if (!recaptchaToken) {
+      return res.status(400).json({ success: false, message: 'Please complete the reCAPTCHA box.' });
+    }
+
     const existingUser = await prisma.user.findUnique({ where: { email } });
-    if (existingUser) return res.status(400).json({ success: false, message: 'Email already registered.' });
+    if (existingUser) {
+      return res.status(400).json({ success: false, message: 'This email is already registered. Please log in.' });
+    }
 
     const passwordHash = await bcrypt.hash(password, 10);
     const user = await prisma.user.create({
-      data: { name, email, passwordHash, payfastMerchantId, role: 'PLANNER' }
+      data: {
+        name,
+        email,
+        passwordHash,
+        payfastMerchantId,
+        role: 'PLANNER'
+      }
     });
 
-    res.status(201).json({ success: true, message: 'Organizer account created successfully!' });
+    console.log("Successfully registered user:", user.email);
+
+    res.status(201).json({ 
+      success: true, 
+      message: 'Account created successfully! Redirecting to login...',
+      user: { id: user.id, name: user.name, email: user.email }
+    });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    console.error("Registration Server Error:", err);
+    res.status(500).json({ success: false, message: 'Server database error: ' + err.message });
   }
 });
 
+// User Login (Planners & Admins)
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
     const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) return res.status(400).json({ success: false, message: 'Invalid credentials.' });
+    if (!user) return res.status(400).json({ success: false, message: 'Invalid email or password.' });
 
     const validPassword = await bcrypt.compare(password, user.passwordHash);
-    if (!validPassword) return res.status(400).json({ success: false, message: 'Invalid credentials.' });
+    if (!validPassword) return res.status(400).json({ success: false, message: 'Invalid email or password.' });
 
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role, payfastMerchantId: user.payfastMerchantId },
@@ -103,120 +145,4 @@ app.post('/api/auth/login', async (req, res) => {
     );
 
     res.status(200).json({ success: true, token, user: { name: user.name, role: user.role } });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
   }
-});
-
-// -------------------------------------------------------------
-// EVENT MANAGEMENT WITH BANNER UPLOAD
-// -------------------------------------------------------------
-app.get('/api/events', async (req, res) => {
-  try {
-    const events = await prisma.event.findMany({
-      orderBy: { createdAt: 'desc' },
-      include: { organizer: { select: { name: true } } }
-    });
-    res.json({ success: true, events });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
-
-app.get('/api/events/my-events', authenticatePlanner, async (req, res) => {
-  try {
-    const myEvents = await prisma.event.findMany({
-      where: { organizerId: req.user.id },
-      orderBy: { createdAt: 'desc' }
-    });
-    res.json({ success: true, events: myEvents });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
-
-// Event Creation Route supporting File Upload or Image URL
-app.post('/api/events/create', authenticatePlanner, upload.single('bannerImage'), async (req, res) => {
-  try {
-    const { title, description, location, price, capacity, imageUrl } = req.body;
-    if (!title || price === undefined || !capacity) {
-      return res.status(400).json({ success: false, message: 'Title, price, and capacity are required.' });
-    }
-
-    // Determine image URL from uploaded file or fall back to external URL / default
-    let finalImageUrl = 'https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=800&q=80';
-    
-    if (req.file) {
-      finalImageUrl = `/uploads/${req.file.filename}`;
-    } else if (imageUrl && imageUrl.trim() !== '') {
-      finalImageUrl = imageUrl.trim();
-    }
-
-    const event = await prisma.event.create({
-      data: {
-        title,
-        description: description || '',
-        location: location || 'East London',
-        price: parseFloat(price),
-        capacity: parseInt(capacity),
-        available: parseInt(capacity),
-        imageUrl: finalImageUrl,
-        payfastMerchantId: req.user.payfastMerchantId,
-        organizerId: req.user.id
-      }
-    });
-
-    res.status(201).json({ success: true, message: 'Event published live with banner!', event });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
-
-// -------------------------------------------------------------
-// PAYFAST 5% SPLIT CHECKOUT ROUTE
-// -------------------------------------------------------------
-app.post('/api/tickets/checkout-split', async (req, res) => {
-  try {
-    const { eventId, quantity } = req.body;
-    const qty = parseInt(quantity) || 1;
-
-    const event = await prisma.event.findUnique({ where: { id: eventId } });
-    if (!event) return res.status(404).json({ success: false, message: 'Event not found.' });
-    if (event.available < qty) return res.status(400).json({ success: false, message: 'Not enough tickets available.' });
-
-    const totalAmount = event.price * qty;
-    const platformFee = totalAmount * 0.05;
-    const organizerAmount = totalAmount - platformFee;
-
-    const payfastData = {
-      merchant_id: process.env.PAYFAST_MERCHANT_ID || '10000100',
-      merchant_key: process.env.PAYFAST_MERCHANT_KEY || '46f0cd694581a',
-      return_url: 'https://el-pulse-app-1.onrender.com/index.html?payment=success',
-      cancel_url: 'https://el-pulse-app-1.onrender.com/index.html?payment=cancelled',
-      notify_url: 'https://el-pulse-app-1.onrender.com/api/tickets/payfast-webhook',
-      amount: totalAmount.toFixed(2),
-      item_name: `EL Pulse Ticket (${qty}x) - ${event.title}`,
-      setup_split: {
-        split_merchant_id: event.payfastMerchantId,
-        split_percentage: 95,
-        amount: totalAmount.toFixed(2)
-      }
-    };
-
-    res.json({
-      success: true,
-      checkoutUrl: 'https://sandbox.payfast.co.za/eng/process',
-      payfastData,
-      breakdown: {
-        total: totalAmount.toFixed(2),
-        platformFee5Percent: platformFee.toFixed(2),
-        organizerPayout95Percent: organizerAmount.toFixed(2)
-      }
-    });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
-
-const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => console.log(`EL Pulse Server running on port ${PORT}`));
