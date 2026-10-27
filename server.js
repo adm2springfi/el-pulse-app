@@ -5,6 +5,7 @@ const session = require('express-session');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const https = require('https');
 
 const prisma = new PrismaClient();
 const app = express();
@@ -37,6 +38,13 @@ const storage = multer.diskStorage({
   }
 });
 const upload = multer({ storage: storage });
+
+// ==========================================
+// HEALTH CHECK ROUTE (For Ping Services)
+// ==========================================
+app.get('/health', (req, res) => {
+  res.status(200).send('OK');
+});
 
 // ==========================================
 // AUTHENTICATION ROUTES
@@ -224,4 +232,14 @@ app.get('/reset-account', async (req, res) => {
 // Start server
 app.listen(PORT, () => {
   console.log(`EL Pulse server running on port ${PORT}`);
+
+  // Self-ping every 10 minutes to prevent Render sleep mode
+  const APP_URL = 'https://el-pulse-app-1.onrender.com/health';
+  setInterval(() => {
+    https.get(APP_URL, (res) => {
+      console.log(`Self-ping sent to keep app awake: ${res.statusCode}`);
+    }).on('error', (err) => {
+      console.error('Self-ping failed:', err.message);
+    });
+  }, 10 * 60 * 1000); // 10 minutes
 });
