@@ -55,6 +55,10 @@ app.post('/api/register', async (req, res) => {
   try {
     const { name, email, password, payfastMerchantId } = req.body;
     
+    if (!email || !password || !name) {
+      return res.status(400).json({ error: 'Name, email, and password are required.' });
+    }
+
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
       return res.status(400).json({ error: 'Account already exists with this email.' });
@@ -75,7 +79,7 @@ app.post('/api/register', async (req, res) => {
     req.session.userEmail = user.email;
     res.json({ success: true, message: 'Account created successfully!' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error.message || 'Server error occurred during registration.' });
   }
 });
 
@@ -93,7 +97,33 @@ app.post('/api/login', async (req, res) => {
     req.session.userEmail = user.email;
     res.json({ success: true, message: 'Logged in successfully!' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error.message || 'Server error during login.' });
+  }
+});
+
+// Password reset route for registered users
+app.post('/api/reset-password', async (req, res) => {
+  try {
+    const { email, newPassword } = req.body;
+    
+    if (!email || !newPassword) {
+      return res.status(400).json({ error: 'Email and new password are required.' });
+    }
+
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      return res.status(404).json({ error: 'No account found with this email address.' });
+    }
+
+    const newPasswordHash = await bcrypt.hash(newPassword, 10);
+    await prisma.user.update({
+      where: { email },
+      data: { passwordHash: newPasswordHash }
+    });
+
+    res.json({ success: true, message: 'Password reset successfully! You can now log in.' });
+  } catch (error) {
+    res.status(500).json({ error: error.message || 'Error resetting password.' });
   }
 });
 
