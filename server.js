@@ -40,7 +40,7 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 // ==========================================
-// HEALTH CHECK ROUTE (For Ping Services)
+// HEALTH CHECK ROUTE (For Self-Ping & Keep-Alive)
 // ==========================================
 app.get('/health', (req, res) => {
   res.status(200).send('OK');
@@ -229,7 +229,7 @@ app.get('/reset-account', async (req, res) => {
   }
 });
 
-// Start server
+// Start server and initialize self-ping keep-alive
 app.listen(PORT, () => {
   console.log(`EL Pulse server running on port ${PORT}`);
 
