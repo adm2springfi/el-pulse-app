@@ -1,27 +1,20 @@
 {
   "name": "el-pulse-app",
   "version": "1.0.0",
-  "description": "EL Pulse Event Ticketing Platform",
+  "description": "EL Pulse Event Ticketing and Management Application",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "npx prisma generate && npx prisma db push --accept-data-loss",
-    "postinstall": "npx prisma generate && npx prisma db push --accept-data-loss"
+    "build": "npx prisma generate"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
   "dependencies": {
-    "@prisma/client": "^5.22.0",
+    "@prisma/client": "^5.10.0",
     "bcryptjs": "^2.4.3",
-    "cors": "^2.8.5",
-    "express": "^5.3.0",
-    "jsonwebtoken": "^9.0.3",
-    "multer": "^2.5.0",
-    "nodemailer": "^10.2.1",
-    "prisma": "^5.22.0",
-    "twilio": "^6.2.0"
+    "express": "^4.19.2",
+    "express-session": "^1.18.0",
+    "multer": "^1.4.5-lts.1"
+  },
+  "devDependencies": {
+    "prisma": "^5.10.0"
   }
 }
