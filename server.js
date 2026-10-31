@@ -176,7 +176,7 @@ app.get('/api/events', async (req, res) => {
   }
 });
 
-// Create event (accepts explicit userId from form body or session)
+// Create event with clean ISO date string
 app.post('/api/events', upload.single('image'), async (req, res) => {
   try {
     let userId = req.body.userId || req.session.userId;
@@ -193,11 +193,12 @@ app.post('/api/events', upload.single('image'), async (req, res) => {
     const { title, description, location, date, price, capacity } = req.body;
     const imageUrl = req.file ? `/uploads/${req.file.filename}` : '/images/default-event.jpg';
 
-    let eventDate = new Date();
+    // Parse date into ISO format string
+    let eventDateString = new Date().toISOString();
     if (date) {
       const parsed = new Date(date);
       if (!isNaN(parsed.getTime())) {
-        eventDate = parsed;
+        eventDateString = parsed.toISOString();
       }
     }
 
@@ -211,7 +212,7 @@ app.post('/api/events', upload.single('image'), async (req, res) => {
         title,
         description,
         location,
-        date: eventDate,
+        date: eventDateString,
         price: parseFloat(price) || 0,
         capacity: parseInt(capacity) || 100,
         available: parseInt(capacity) || 100,
