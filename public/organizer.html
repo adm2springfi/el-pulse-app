@@ -116,7 +116,6 @@
     </main>
 
     <script>
-        // Check authentication on load
         async function checkAuth() {
             try {
                 const res = await fetch('/api/me', { credentials: 'include' });

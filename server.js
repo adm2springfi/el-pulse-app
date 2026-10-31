@@ -200,6 +200,15 @@ app.post('/api/events', upload.single('image'), async (req, res) => {
     const { title, description, location, date, price, capacity } = req.body;
     const imageUrl = req.file ? `/uploads/${req.file.filename}` : '/images/default-event.jpg';
 
+    // Robust date parsing
+    let eventDate = new Date();
+    if (date) {
+      const parsed = new Date(date);
+      if (!isNaN(parsed.getTime())) {
+        eventDate = parsed;
+      }
+    }
+
     const user = await prisma.user.findUnique({ where: { id: req.session.userId } });
 
     const event = await prisma.event.create({
@@ -207,10 +216,10 @@ app.post('/api/events', upload.single('image'), async (req, res) => {
         title,
         description,
         location,
-        date: new Date(date), // Properly converted to Date object for Prisma
-        price: parseFloat(price),
-        capacity: parseInt(capacity),
-        available: parseInt(capacity),
+        date: eventDate,
+        price: parseFloat(price) || 0,
+        capacity: parseInt(capacity) || 100,
+        available: parseInt(capacity) || 100,
         imageUrl,
         payfastMerchantId: user.payfastMerchantId,
         organizerId: user.id
