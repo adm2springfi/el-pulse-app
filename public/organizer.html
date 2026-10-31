@@ -47,6 +47,7 @@
                     <i class="fa-solid fa-calendar-plus text-indigo-400 mr-2"></i> Create New Event
                 </h3>
                 <form onsubmit="handleCreateEvent(event)" class="space-y-4">
+                    <input type="hidden" id="auth-user-id">
                     <div>
                         <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Event Title</label>
                         <input type="text" id="event-title" required class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white outline-none text-sm">
@@ -116,6 +117,8 @@
     </main>
 
     <script>
+        let currentUserId = '';
+
         async function checkAuth() {
             try {
                 const res = await fetch('/api/me', { credentials: 'include' });
@@ -124,6 +127,8 @@
                     return;
                 }
                 const user = await res.json();
+                currentUserId = user.id;
+                document.getElementById('auth-user-id').value = user.id;
                 document.getElementById('user-greeting').innerText = `Logged in as: ${user.name} (${user.email})`;
             } catch (err) {
                 window.location.href = '/planner-login.html';
@@ -133,6 +138,7 @@
         async function handleCreateEvent(e) {
             e.preventDefault();
             const formData = new FormData();
+            formData.append('userId', currentUserId);
             formData.append('title', document.getElementById('event-title').value);
             formData.append('date', document.getElementById('event-date').value);
             formData.append('location', document.getElementById('event-location').value);
@@ -161,6 +167,7 @@
         async function handleUploadPhoto(e) {
             e.preventDefault();
             const formData = new FormData();
+            formData.append('userId', currentUserId);
             formData.append('title', document.getElementById('photo-title').value);
             formData.append('photo', document.getElementById('photo-file').files[0]);
 

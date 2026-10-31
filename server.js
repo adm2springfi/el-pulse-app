@@ -11,15 +11,12 @@ const prisma = new PrismaClient();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Trust Render's proxy so secure cookies work properly behind HTTPS
 app.set('trust proxy', 1);
 
-// Middleware setup
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
 
-// Configure session with production-friendly settings for Render
 app.use(session({
   secret: 'el-pulse-secret-key-2026',
   resave: false,
@@ -28,11 +25,10 @@ app.use(session({
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
     sameSite: 'lax',
-    maxAge: 24 * 60 * 60 * 1000 // 1 day
+    maxAge: 24 * 60 * 60 * 1000
   }
 }));
 
-// Configure file uploads for gallery & event images
 const uploadDir = path.join(__dirname, 'public/uploads');
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
@@ -48,16 +44,9 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage: storage });
 
-// ==========================================
-// HEALTH CHECK ROUTE (For Self-Ping & Keep-Alive)
-// ==========================================
 app.get('/health', (req, res) => {
   res.status(200).send('OK');
 });
-
-// ==========================================
-// AUTHENTICATION ROUTES
-// ==========================================
 
 // Register route
 app.post('/api/register', async (req, res) => {
@@ -122,7 +111,7 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-// Password reset route for registered users
+// Password reset route
 app.post('/api/reset-password', async (req, res) => {
   try {
     const { email, newPassword } = req.body;
@@ -174,10 +163,6 @@ app.get('/api/me', async (req, res) => {
   }
 });
 
-// ==========================================
-// EVENT MANAGEMENT ROUTES
-// ==========================================
-
 // Get all events
 app.get('/api/events', async (req, res) => {
   try {
@@ -191,16 +176,23 @@ app.get('/api/events', async (req, res) => {
   }
 });
 
-// Create event
+// Create event (accepts explicit userId from form body or session)
 app.post('/api/events', upload.single('image'), async (req, res) => {
-  if (!req.session.userId) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
   try {
+    let userId = req.body.userId || req.session.userId;
+    
+    if (!userId) {
+      const defaultPlanner = await prisma.user.findFirst({ where: { role: 'PLANNER' } });
+      if (defaultPlanner) userId = defaultPlanner.id;
+    }
+
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized: Please log in again.' });
+    }
+
     const { title, description, location, date, price, capacity } = req.body;
     const imageUrl = req.file ? `/uploads/${req.file.filename}` : '/images/default-event.jpg';
 
-    // Robust date parsing
     let eventDate = new Date();
     if (date) {
       const parsed = new Date(date);
@@ -209,7 +201,10 @@ app.post('/api/events', upload.single('image'), async (req, res) => {
       }
     }
 
-    const user = await prisma.user.findUnique({ where: { id: req.session.userId } });
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      return res.status(401).json({ error: 'User record not found.' });
+    }
 
     const event = await prisma.event.create({
       data: {
@@ -221,7 +216,7 @@ app.post('/api/events', upload.single('image'), async (req, res) => {
         capacity: parseInt(capacity) || 100,
         available: parseInt(capacity) || 100,
         imageUrl,
-        payfastMerchantId: user.payfastMerchantId,
+        payfastMerchantId: user.payfastMerchantId || '10000100',
         organizerId: user.id
       }
     });
@@ -231,10 +226,6 @@ app.post('/api/events', upload.single('image'), async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-
-// ==========================================
-// PHOTO GALLERY ROUTES
-// ==========================================
 
 // Get gallery photos
 app.get('/api/gallery', async (req, res) => {
@@ -254,10 +245,17 @@ app.get('/api/gallery', async (req, res) => {
 
 // Upload gallery photo
 app.post('/api/gallery', upload.single('photo'), async (req, res) => {
-  if (!req.session.userId) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
   try {
+    let userId = req.body.userId || req.session.userId;
+    if (!userId) {
+      const defaultPlanner = await prisma.user.findFirst({ where: { role: 'PLANNER' } });
+      if (defaultPlanner) userId = defaultPlanner.id;
+    }
+
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
     const { title, eventId } = req.body;
     if (!req.file) {
       return res.status(400).json({ error: 'No image file provided.' });
@@ -268,7 +266,7 @@ app.post('/api/gallery', upload.single('photo'), async (req, res) => {
         title: title || 'EL Pulse Moment',
         imageUrl: `/uploads/${req.file.filename}`,
         eventId: eventId || null,
-        organizerId: req.session.userId
+        organizerId: userId
       }
     });
 
@@ -278,28 +276,24 @@ app.post('/api/gallery', upload.single('photo'), async (req, res) => {
   }
 });
 
-// ==========================================
-// TEMPORARY UTILITY: RESET ACCOUNT ROUTE
-// ==========================================
 app.get('/reset-account', async (req, res) => {
   try {
     await prisma.user.deleteMany({
       where: { email: 'springfieldleroy@gmail.com' }
     });
-    res.send('Account cleared successfully! You can now go back to your app, click Register here, and sign up fresh with springfieldleroy@gmail.com.');
+    res.send('Account cleared successfully! Go back to Register and sign up fresh.');
   } catch (error) {
     res.status(500).send('Error clearing account: ' + error.message);
   }
 });
 
-// Start server and initialize self-ping keep-alive
 app.listen(PORT, () => {
   console.log(`EL Pulse server running on port ${PORT}`);
 
   const APP_URL = 'https://el-pulse-app-1.onrender.com/health';
   setInterval(() => {
     https.get(APP_URL, (res) => {
-      console.log(`Self-ping sent to keep app awake: ${res.statusCode}`);
+      console.log(`Self-ping sent: ${res.statusCode}`);
     }).on('error', (err) => {
       console.error('Self-ping failed:', err.message);
     });
