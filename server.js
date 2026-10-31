@@ -176,7 +176,7 @@ app.get('/api/events', async (req, res) => {
   }
 });
 
-// Create event route
+// Create event route (Parses date into a proper JavaScript Date object for Prisma DateTime)
 app.post('/api/events', upload.single('image'), async (req, res) => {
   try {
     let userId = req.body.userId || req.session.userId;
@@ -193,6 +193,15 @@ app.post('/api/events', upload.single('image'), async (req, res) => {
     const { title, description, location, date, price, capacity } = req.body;
     const imageUrl = req.file ? `/uploads/${req.file.filename}` : '/images/default-event.jpg';
 
+    // Safely parse date into a real Date object
+    let parsedDate = new Date();
+    if (date) {
+      const parsed = new Date(date);
+      if (!isNaN(parsed.getTime())) {
+        parsedDate = parsed;
+      }
+    }
+
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
       return res.status(401).json({ error: 'User record not found.' });
@@ -203,7 +212,7 @@ app.post('/api/events', upload.single('image'), async (req, res) => {
         title,
         description,
         location,
-        date: date || '2026-11-01 17:00', // Safely passed as a clean string matching schema
+        date: parsedDate, // Passed as a valid JS Date object
         price: parseFloat(price) || 0,
         capacity: parseInt(capacity) || 100,
         available: parseInt(capacity) || 100,
