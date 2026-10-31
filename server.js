@@ -11,16 +11,25 @@ const prisma = new PrismaClient();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Trust Render's proxy so secure cookies work properly behind HTTPS
+app.set('trust proxy', 1);
+
 // Middleware setup
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
 
-// Configure session
+// Configure session with production-friendly settings for Render
 app.use(session({
   secret: 'el-pulse-secret-key-2026',
   resave: false,
-  saveUninitialized: false
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production', // true on Render (HTTPS)
+    httpOnly: true,
+    sameSite: 'lax',
+    maxAge: 24 * 60 * 60 * 1000 // 1 day
+  }
 }));
 
 // Configure file uploads for gallery & event images
@@ -70,14 +79,20 @@ app.post('/api/register', async (req, res) => {
         name,
         email,
         passwordHash,
-        payfastMerchantId: payfastMerchantId || '10000100', // Default sandbox ID
+        payfastMerchantId: payfastMerchantId || '10000100',
         role: 'PLANNER'
       }
     });
 
     req.session.userId = user.id;
     req.session.userEmail = user.email;
-    res.json({ success: true, message: 'Account created successfully!' });
+    
+    req.session.save((err) => {
+      if (err) {
+        return res.status(500).json({ error: 'Failed to save session.' });
+      }
+      res.json({ success: true, message: 'Account created successfully!' });
+    });
   } catch (error) {
     res.status(500).json({ error: error.message || 'Server error occurred during registration.' });
   }
@@ -95,7 +110,13 @@ app.post('/api/login', async (req, res) => {
 
     req.session.userId = user.id;
     req.session.userEmail = user.email;
-    res.json({ success: true, message: 'Logged in successfully!' });
+
+    req.session.save((err) => {
+      if (err) {
+        return res.status(500).json({ error: 'Failed to save session.' });
+      }
+      res.json({ success: true, message: 'Logged in successfully!' });
+    });
   } catch (error) {
     res.status(500).json({ error: error.message || 'Server error during login.' });
   }
@@ -144,6 +165,9 @@ app.get('/api/me', async (req, res) => {
       where: { id: req.session.userId },
       select: { id: true, name: true, email: true, payfastMerchantId: true, role: true }
     });
+    if (!user) {
+      return res.status(401).json({ error: 'User not found' });
+    }
     res.json(user);
   } catch (error) {
     res.status(500).json({ error: error.message });
