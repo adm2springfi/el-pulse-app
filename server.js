@@ -25,7 +25,7 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: process.env.NODE_ENV === 'production', // true on Render (HTTPS)
+    secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
     sameSite: 'lax',
     maxAge: 24 * 60 * 60 * 1000 // 1 day
@@ -287,7 +287,6 @@ app.get('/reset-account', async (req, res) => {
 app.listen(PORT, () => {
   console.log(`EL Pulse server running on port ${PORT}`);
 
-  // Self-ping every 10 minutes to prevent Render sleep mode
   const APP_URL = 'https://el-pulse-app-1.onrender.com/health';
   setInterval(() => {
     https.get(APP_URL, (res) => {
@@ -295,5 +294,5 @@ app.listen(PORT, () => {
     }).on('error', (err) => {
       console.error('Self-ping failed:', err.message);
     });
-  }, 10 * 60 * 1000); // 10 minutes
+  }, 10 * 60 * 1000);
 });
