@@ -207,7 +207,7 @@ app.post('/api/events', upload.single('image'), async (req, res) => {
         title,
         description,
         location,
-        date,
+        date: new Date(date), // Properly converted to Date object for Prisma
         price: parseFloat(price),
         capacity: parseInt(capacity),
         available: parseInt(capacity),
