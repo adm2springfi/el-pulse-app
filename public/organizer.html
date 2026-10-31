@@ -140,7 +140,12 @@
             const formData = new FormData();
             formData.append('userId', currentUserId);
             formData.append('title', document.getElementById('event-title').value);
-            formData.append('date', document.getElementById('event-date').value);
+            
+            // Format datetime-local input cleanly into a standard string (YYYY-MM-DD HH:mm)
+            const rawDate = document.getElementById('event-date').value;
+            const formattedDate = rawDate ? rawDate.replace('T', ' ') : new Date().toISOString().slice(0, 19).replace('T', ' ');
+            formData.append('date', formattedDate);
+
             formData.append('location', document.getElementById('event-location').value);
             formData.append('price', document.getElementById('event-price').value);
             formData.append('capacity', document.getElementById('event-capacity').value);
